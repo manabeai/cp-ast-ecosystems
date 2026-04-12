@@ -5,3 +5,4 @@ pub mod slot;
 pub mod structure_node;
 
 pub use node_id::NodeId;
+pub use node_kind::NodeKind;
