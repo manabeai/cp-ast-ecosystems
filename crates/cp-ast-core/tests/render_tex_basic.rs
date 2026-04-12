@@ -1,6 +1,8 @@
 use cp_ast_core::constraint::{ArithOp, Constraint, DistinctUnit, Expression, SortOrder};
 use cp_ast_core::operation::AstEngine;
-use cp_ast_core::render_tex::{render_constraints_tex, render_input_tex, SectionMode, TexOptions};
+use cp_ast_core::render_tex::{
+    render_constraints_tex, render_full_tex, render_input_tex, SectionMode, TexOptions,
+};
 use cp_ast_core::render_tex::{tex_helpers, TexWarning};
 use cp_ast_core::structure::{Ident, NodeKind, Reference};
 
@@ -662,4 +664,182 @@ T_Q\n\
 \\end{array}\n\
 \\]\n";
     assert_eq!(result.tex, expected);
+}
+
+// ---- render_full_tex tests ----
+
+#[test]
+fn full_tex_fragment_mode() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id],
+        });
+    }
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    let result = render_full_tex(&engine, &TexOptions::default());
+    // Fragment mode: input + blank line + constraints
+    assert!(result.tex.contains("\\begin{array}"));
+    assert!(result.tex.contains("\\begin{itemize}"));
+}
+
+#[test]
+fn full_tex_standalone_mode() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id],
+        });
+    }
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    let options = TexOptions {
+        section_mode: SectionMode::Standalone,
+        include_holes: true,
+    };
+    let result = render_full_tex(&engine, &options);
+    assert!(result.tex.contains("\\paragraph{入力}"));
+    assert!(result.tex.contains("\\paragraph{制約}"));
+}
+
+// ---- End-to-end test ----
+
+#[test]
+fn e2e_graph_problem_tex() {
+    // Build a graph problem: N M header, M edges (u_i v_i), constraints
+    let mut engine = AstEngine::new();
+
+    // Variables
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let m_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("M"),
+    });
+    let header = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![n_id, m_id],
+    });
+
+    let u_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("u"),
+    });
+    let v_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("v"),
+    });
+    let edge_tuple = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![u_id, v_id],
+    });
+    let edges = engine.structure.add_node(NodeKind::Repeat {
+        count: Reference::VariableRef(m_id),
+        body: vec![edge_tuple],
+    });
+
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![header, edges],
+        });
+    }
+
+    // Constraints
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+    engine.constraints.add(
+        Some(m_id),
+        Constraint::Range {
+            target: Reference::VariableRef(m_id),
+            lower: Expression::Lit(0),
+            upper: Expression::BinOp {
+                op: ArithOp::Div,
+                lhs: Box::new(Expression::BinOp {
+                    op: ArithOp::Mul,
+                    lhs: Box::new(Expression::Var(Reference::VariableRef(n_id))),
+                    rhs: Box::new(Expression::BinOp {
+                        op: ArithOp::Sub,
+                        lhs: Box::new(Expression::Var(Reference::VariableRef(n_id))),
+                        rhs: Box::new(Expression::Lit(1)),
+                    }),
+                }),
+                rhs: Box::new(Expression::Lit(2)),
+            },
+        },
+    );
+
+    // Input TeX
+    let input_result = render_input_tex(&engine, &TexOptions::default());
+    let expected_input = "\
+\\[\n\
+\\begin{array}{l}\n\
+N \\ M \\\\\n\
+u_1 \\ v_1 \\\\\n\
+u_2 \\ v_2 \\\\\n\
+\\vdots \\\\\n\
+u_M \\ v_M\n\
+\\end{array}\n\
+\\]\n";
+    assert_eq!(input_result.tex, expected_input);
+
+    // Constraint TeX
+    let constraint_result = render_constraints_tex(&engine, &TexOptions::default());
+    assert!(constraint_result.tex.contains("$1 \\le N \\le 10^{2}$"));
+    assert!(constraint_result.tex.contains("$0 \\le M \\le"));
+
+    // Full TeX
+    let full_result = render_full_tex(
+        &engine,
+        &TexOptions {
+            section_mode: SectionMode::Standalone,
+            include_holes: true,
+        },
+    );
+    assert!(full_result.tex.contains("\\paragraph{入力}"));
+    assert!(full_result.tex.contains("\\paragraph{制約}"));
+    assert!(full_result.warnings.is_empty());
+}
+
+#[test]
+fn include_holes_false_suppresses_holes() {
+    let mut engine = AstEngine::new();
+    let hole_id = engine.structure.add_node(NodeKind::Hole {
+        expected_kind: None,
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![hole_id],
+        });
+    }
+
+    let options = TexOptions {
+        section_mode: SectionMode::Fragment,
+        include_holes: false,
+    };
+    let result = render_input_tex(&engine, &options);
+    assert!(!result.tex.contains("hole"));
+    assert!(result.warnings.is_empty());
 }
