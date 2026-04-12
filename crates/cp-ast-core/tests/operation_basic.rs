@@ -512,3 +512,206 @@ fn introduce_multi_test_case_already_exists_fails() {
         Err(OperationError::InvalidOperation { .. })
     ));
 }
+
+// ── Preview (dry-run) tests ──────────────────────────────────────────
+
+#[test]
+fn preview_fill_hole_shows_new_holes() {
+    let mut engine = AstEngine::new();
+    let root = engine.structure.root();
+
+    // Root is a Sequence; add a Hole child so we can fill it
+    let hole_id = engine.structure.add_node(NodeKind::Hole {
+        expected_kind: None,
+    });
+    if let Some(root_node) = engine.structure.get_mut(root) {
+        root_node.set_kind(NodeKind::Sequence {
+            children: vec![hole_id],
+        });
+    }
+
+    // Preview filling the hole with a Section (which creates a body hole)
+    let action = Action::FillHole {
+        target: hole_id,
+        fill: FillContent::Section {
+            label: "input".to_owned(),
+        },
+    };
+    let preview = engine.preview(&action).unwrap();
+
+    // Section fill creates exactly one body hole
+    assert_eq!(preview.new_holes_created.len(), 1);
+
+    // Original AST is still untouched — hole_id is still a Hole
+    assert!(matches!(
+        engine.structure.get(hole_id).unwrap().kind(),
+        NodeKind::Hole { .. }
+    ));
+}
+
+#[test]
+fn preview_fill_hole_scalar_no_new_holes() {
+    let mut engine = AstEngine::new();
+    let root = engine.structure.root();
+
+    let hole_id = engine.structure.add_node(NodeKind::Hole {
+        expected_kind: None,
+    });
+    if let Some(root_node) = engine.structure.get_mut(root) {
+        root_node.set_kind(NodeKind::Sequence {
+            children: vec![hole_id],
+        });
+    }
+
+    let action = Action::FillHole {
+        target: hole_id,
+        fill: FillContent::Scalar {
+            name: "N".to_owned(),
+            typ: VarType::Int,
+        },
+    };
+    let preview = engine.preview(&action).unwrap();
+
+    // Scalar fill creates no holes but does create a TypeDecl constraint
+    assert!(preview.new_holes_created.is_empty());
+    assert!(!preview.constraints_affected.is_empty());
+}
+
+#[test]
+fn preview_invalid_action_returns_error() {
+    let engine = AstEngine::new();
+
+    // Trying to fill a non-existent node should fail just like apply
+    let action = Action::FillHole {
+        target: NodeId::from_raw(999),
+        fill: FillContent::Scalar {
+            name: "X".to_owned(),
+            typ: VarType::Int,
+        },
+    };
+    let result = engine.preview(&action);
+    assert!(matches!(result, Err(OperationError::NodeNotFound { .. })));
+}
+
+#[test]
+fn preview_does_not_mutate_ast() {
+    let mut engine = AstEngine::new();
+    let root = engine.structure.root();
+
+    let hole_id = engine.structure.add_node(NodeKind::Hole {
+        expected_kind: None,
+    });
+    if let Some(root_node) = engine.structure.get_mut(root) {
+        root_node.set_kind(NodeKind::Sequence {
+            children: vec![hole_id],
+        });
+    }
+
+    // Snapshot state before preview
+    let node_count_before = engine.structure.len();
+    let constraint_count_before = engine.constraints.len();
+
+    let action = Action::FillHole {
+        target: hole_id,
+        fill: FillContent::Section {
+            label: "test".to_owned(),
+        },
+    };
+    let _preview = engine.preview(&action).unwrap();
+
+    // After preview: AST must be completely unchanged
+    assert_eq!(engine.structure.len(), node_count_before);
+    assert_eq!(engine.constraints.len(), constraint_count_before);
+    assert!(matches!(
+        engine.structure.get(hole_id).unwrap().kind(),
+        NodeKind::Hole { .. }
+    ));
+}
+
+#[test]
+fn preview_add_constraint_shows_affected() {
+    let engine = AstEngine::new();
+    let root = engine.structure.root();
+
+    let action = Action::AddConstraint {
+        target: root,
+        constraint: ConstraintDef {
+            kind: ConstraintDefKind::Range {
+                lower: "1".to_owned(),
+                upper: "100".to_owned(),
+            },
+        },
+    };
+    let preview = engine.preview(&action).unwrap();
+
+    assert!(preview.new_holes_created.is_empty());
+    assert_eq!(preview.constraints_affected.len(), 1);
+
+    // Engine is unchanged
+    assert!(engine.constraints.is_empty());
+}
+
+#[test]
+fn preview_remove_constraint_shows_affected() {
+    let mut engine = AstEngine::new();
+    let root = engine.structure.root();
+
+    // First actually add a constraint
+    let add_result = engine
+        .apply(&Action::AddConstraint {
+            target: root,
+            constraint: ConstraintDef {
+                kind: ConstraintDefKind::Range {
+                    lower: "1".to_owned(),
+                    upper: "100".to_owned(),
+                },
+            },
+        })
+        .unwrap();
+    let cid = add_result.created_constraints[0];
+
+    // Preview removing it
+    let preview = engine
+        .preview(&Action::RemoveConstraint { constraint_id: cid })
+        .unwrap();
+
+    assert!(preview.new_holes_created.is_empty());
+    assert!(preview.constraints_affected.contains(&cid));
+
+    // Constraint still exists in the real engine
+    assert!(engine.constraints.get(cid).is_some());
+}
+
+#[test]
+fn preview_introduce_multi_test_case() {
+    let mut engine = AstEngine::new();
+    let root = engine.structure.root();
+
+    // Add some structure first
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    if let Some(root_node) = engine.structure.get_mut(root) {
+        root_node.set_kind(NodeKind::Sequence {
+            children: vec![n_id],
+        });
+    }
+    let node_count_before = engine.structure.len();
+
+    let action = Action::IntroduceMultiTestCase {
+        count_var_name: "T".to_owned(),
+        sum_bound: Some(SumBoundDef {
+            bound_var: "N".to_owned(),
+            upper: "200000".to_owned(),
+        }),
+    };
+    let preview = engine.preview(&action).unwrap();
+
+    // No holes created by this action
+    assert!(preview.new_holes_created.is_empty());
+    // SumBound constraint would be created
+    assert!(!preview.constraints_affected.is_empty());
+    // Original engine unchanged
+    assert_eq!(engine.structure.len(), node_count_before);
+    assert!(engine.constraints.is_empty());
+}

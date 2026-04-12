@@ -2,7 +2,7 @@ use super::action::Action;
 use super::error::OperationError;
 use super::result::{ApplyResult, PreviewResult};
 use crate::constraint::ConstraintSet;
-use crate::structure::StructureAst;
+use crate::structure::{NodeKind, StructureAst};
 
 /// The main AST engine that owns both Structure and Constraint data.
 ///
@@ -57,13 +57,39 @@ impl AstEngine {
         }
     }
 
-    /// Preview an action without applying it.
+    /// Preview an action without applying it (dry-run).
+    ///
+    /// Clones `self`, applies the action on the clone, and derives what
+    /// *would* happen — new holes created and constraints affected —
+    /// without mutating the original engine.
     ///
     /// # Errors
     /// Returns `OperationError` if the action is invalid.
     pub fn preview(&self, action: &Action) -> Result<PreviewResult, OperationError> {
-        let _ = action;
-        todo!("T-10")
+        let mut clone = self.clone();
+        let result = clone.apply(action)?;
+
+        // Holes created: nodes that were created AND are Hole kind in the clone.
+        let new_holes_created = result
+            .created_nodes
+            .iter()
+            .copied()
+            .filter(|&id| {
+                clone
+                    .structure
+                    .get(id)
+                    .is_some_and(|n| matches!(n.kind(), NodeKind::Hole { .. }))
+            })
+            .collect();
+
+        // Constraints affected: union of created + affected from ApplyResult.
+        let mut constraints_affected = result.created_constraints;
+        constraints_affected.extend(result.affected_constraints);
+
+        Ok(PreviewResult {
+            new_holes_created,
+            constraints_affected,
+        })
     }
 }
 
