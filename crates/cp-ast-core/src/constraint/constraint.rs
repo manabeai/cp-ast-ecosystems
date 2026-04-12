@@ -1,67 +1,71 @@
 use super::expected_type::ExpectedType;
 use super::expression::Expression;
-use crate::structure::NodeId;
+use super::types::{CharSetSpec, DistinctUnit, PropertyTag, RelationOp, RenderHintKind, SortOrder};
+use crate::structure::Reference;
 
-/// A constraint on a position in the structure AST.
+/// A constraint on the structure AST.
 ///
-/// Constraints define what is allowed at each position. They are used for
-/// validation, candidate enumeration, and sample case generation.
-#[derive(Debug, Clone)]
+/// Rev.1: 12 variants covering all competitive programming constraint patterns.
+#[derive(Debug, Clone, PartialEq)]
 pub enum Constraint {
-    /// Value range constraint (e.g., `1 <= N <= 2*10^5`)
+    /// Value range: lower ≤ target ≤ upper.
     Range {
-        target: NodeId,
+        target: Reference,
+        lower: Expression,
+        upper: Expression,
+    },
+    /// Type declaration (single source of truth per S-1).
+    TypeDecl {
+        target: Reference,
+        expected: ExpectedType,
+    },
+    /// Length relation: len(target) = length.
+    LengthRelation {
+        target: Reference,
+        length: Expression,
+    },
+    /// Variable relation: lhs op rhs.
+    Relation {
+        lhs: Expression,
+        op: RelationOp,
+        rhs: Expression,
+    },
+    /// All elements are distinct.
+    Distinct {
+        elements: Reference,
+        unit: DistinctUnit,
+    },
+    /// Structural property (graph/array).
+    Property { target: Reference, tag: PropertyTag },
+    /// Sum bound across test cases.
+    SumBound {
+        variable: Reference,
+        upper: Expression,
+    },
+    /// Elements are sorted.
+    Sorted {
+        elements: Reference,
+        order: SortOrder,
+    },
+    /// Existence/validity guarantee (human-readable).
+    Guarantee {
+        description: String,
+        predicate: Option<Expression>,
+    },
+    /// Character set constraint for strings.
+    CharSet {
+        target: Reference,
+        charset: CharSetSpec,
+    },
+    /// String length constraint.
+    StringLength {
+        target: Reference,
         min: Expression,
         max: Expression,
     },
-    /// Array length tied to another variable (e.g., `len(A) = N`)
-    Length { array: NodeId, length_ref: NodeId },
-    /// Per-element constraint on an array (e.g., `0 <= A[i] <= 10^9`)
-    Element {
-        array: NodeId,
-        element_constraint: Box<Constraint>,
+    /// Rendering hint (separator, moved from `StructureAST` per S-1).
+    RenderHint {
+        target: Reference,
+        hint: RenderHintKind,
     },
-    /// Expected type for a position (e.g., `N: Int`)
-    Type {
-        target: NodeId,
-        expected: ExpectedType,
-    },
-}
-
-impl Constraint {
-    /// Create a range constraint.
-    #[must_use]
-    pub fn range(target: NodeId, min: Expression, max: Expression) -> Self {
-        Self::Range { target, min, max }
-    }
-
-    /// Create a length constraint.
-    #[must_use]
-    pub fn length(array: NodeId, length_ref: NodeId) -> Self {
-        Self::Length { array, length_ref }
-    }
-
-    /// Create an element constraint.
-    #[must_use]
-    pub fn element(array: NodeId, element_constraint: Constraint) -> Self {
-        Self::Element {
-            array,
-            element_constraint: Box::new(element_constraint),
-        }
-    }
-
-    /// Create a type constraint.
-    #[must_use]
-    pub fn expected_type(target: NodeId, expected: ExpectedType) -> Self {
-        Self::Type { target, expected }
-    }
-
-    /// Returns the primary target `NodeId` of this constraint.
-    #[must_use]
-    pub fn target(&self) -> NodeId {
-        match self {
-            Self::Range { target, .. } | Self::Type { target, .. } => *target,
-            Self::Length { array, .. } | Self::Element { array, .. } => *array,
-        }
-    }
 }

@@ -1,5 +1,5 @@
 use super::constraint::Constraint;
-use crate::structure::NodeId;
+use crate::structure::{NodeId, Reference};
 
 /// A composable set of constraints on the structure AST.
 ///
@@ -38,11 +38,38 @@ impl ConstraintSet {
     pub fn for_target(&self, target: NodeId) -> impl Iterator<Item = &Constraint> {
         self.constraints
             .iter()
-            .filter(move |c| c.target() == target)
+            .filter(move |c| constraint_targets_node(c, target))
     }
 
     /// Returns an iterator over all constraints.
     pub fn iter(&self) -> impl Iterator<Item = &Constraint> {
         self.constraints.iter()
+    }
+}
+
+/// Helper function to check if a constraint targets a specific `NodeId`.
+fn constraint_targets_node(constraint: &Constraint, node_id: NodeId) -> bool {
+    match constraint {
+        Constraint::Range { target, .. }
+        | Constraint::TypeDecl { target, .. }
+        | Constraint::LengthRelation { target, .. }
+        | Constraint::Distinct {
+            elements: target, ..
+        }
+        | Constraint::Property { target, .. }
+        | Constraint::SumBound {
+            variable: target, ..
+        }
+        | Constraint::Sorted {
+            elements: target, ..
+        }
+        | Constraint::CharSet { target, .. }
+        | Constraint::StringLength { target, .. }
+        | Constraint::RenderHint { target, .. } => match target {
+            Reference::VariableRef(id) | Reference::IndexedRef { target: id, .. } => *id == node_id,
+            Reference::Unresolved(_) => false,
+        },
+        // These constraints don't have a single target node
+        Constraint::Relation { .. } | Constraint::Guarantee { .. } => false,
     }
 }

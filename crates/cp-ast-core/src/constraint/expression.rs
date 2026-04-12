@@ -1,37 +1,59 @@
-use crate::structure::NodeId;
+use super::types::ArithOp;
+use crate::structure::{Ident, Reference};
 
-/// An expression used in constraint bounds.
+/// Expression in constraints — represents numeric formulas.
 ///
-/// Expressions represent values that appear in constraints like
-/// `1 <= N <= 2 * 10^5`. They can be literal constants, references
-/// to other nodes (variables), or arithmetic combinations.
+/// Rev.1: 5 variants replacing the old 4.
+/// Lit/Var/BinOp/Pow/FnCall.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
-    /// A literal integer value (e.g., `1`, `42`)
-    Literal(i64),
-    /// A power expression (base^exp), e.g., `10^9`
-    Power(i64, u32),
-    /// A reference to another node's value (e.g., `N`)
-    Ref(NodeId),
-    /// Multiplication of two expressions (e.g., `2 * 10^5`)
-    Mul(Box<Expression>, Box<Expression>),
+    /// Integer literal: 1, 42, 1000000007.
+    Lit(i64),
+    /// Variable reference: N, A[i].
+    Var(Reference),
+    /// Binary arithmetic: lhs op rhs.
+    BinOp {
+        op: ArithOp,
+        lhs: Box<Expression>,
+        rhs: Box<Expression>,
+    },
+    /// Power: base^exp (e.g., 10^9, 2^30).
+    Pow {
+        base: Box<Expression>,
+        exp: Box<Expression>,
+    },
+    /// Function call: min(a,b), max(a,b), abs(x), len(arr).
+    FnCall { name: Ident, args: Vec<Expression> },
 }
 
 impl Expression {
-    /// Evaluate this expression to a constant value, if possible.
-    ///
-    /// Returns `None` if the expression contains node references
-    /// that cannot be resolved without runtime context.
+    /// Evaluate to a constant if possible (no variable references).
     #[must_use]
     pub fn evaluate_constant(&self) -> Option<i64> {
         match self {
-            Self::Literal(v) => Some(*v),
-            Self::Power(base, exp) => Some(base.pow(*exp)),
-            Self::Ref(_) => None,
-            Self::Mul(lhs, rhs) => {
+            Self::Lit(v) => Some(*v),
+            Self::Var(_) | Self::FnCall { .. } => None,
+            Self::BinOp { op, lhs, rhs } => {
                 let l = lhs.evaluate_constant()?;
                 let r = rhs.evaluate_constant()?;
-                Some(l * r)
+                match op {
+                    ArithOp::Add => l.checked_add(r),
+                    ArithOp::Sub => l.checked_sub(r),
+                    ArithOp::Mul => l.checked_mul(r),
+                    ArithOp::Div => {
+                        if r == 0 {
+                            None
+                        } else {
+                            l.checked_div(r)
+                        }
+                    }
+                }
+            }
+            Self::Pow { base, exp } => {
+                let b = base.evaluate_constant()?;
+                let e = exp.evaluate_constant()?;
+                let e_u32 = u32::try_from(e).ok()?;
+                b.checked_pow(e_u32)
             }
         }
     }
