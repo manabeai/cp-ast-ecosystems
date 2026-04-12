@@ -473,3 +473,193 @@ fn constraint_tex_ordering() {
     assert!(lines[1].contains("1 \\le N \\le 10^{2}"));
     assert!(lines[2].contains("answer exists"));
 }
+
+// ---- Input Format TeX tests ----
+
+#[test]
+fn input_tex_single_scalar() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id],
+        });
+    }
+
+    let result = render_input_tex(&engine, &TexOptions::default());
+    assert_eq!(result.tex, "\\[\n\\begin{array}{l}\nN\n\\end{array}\n\\]\n");
+    assert!(result.warnings.is_empty());
+}
+
+#[test]
+fn input_tex_tuple() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let m_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("M"),
+    });
+    let tuple_id = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![n_id, m_id],
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![tuple_id],
+        });
+    }
+
+    let result = render_input_tex(&engine, &TexOptions::default());
+    assert_eq!(
+        result.tex,
+        "\\[\n\\begin{array}{l}\nN \\ M\n\\end{array}\n\\]\n"
+    );
+}
+
+#[test]
+fn input_tex_array() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Reference::VariableRef(n_id),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, a_id],
+        });
+    }
+
+    let result = render_input_tex(&engine, &TexOptions::default());
+    assert_eq!(
+        result.tex,
+        "\\[\n\\begin{array}{l}\nN \\\\\nA_1 \\ A_2 \\ \\cdots \\ A_N\n\\end{array}\n\\]\n"
+    );
+}
+
+#[test]
+fn input_tex_repeat_scalar() {
+    let mut engine = AstEngine::new();
+    let q_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("Q"),
+    });
+    let t_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("T"),
+    });
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Reference::VariableRef(q_id),
+        body: vec![t_id],
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![q_id, repeat_id],
+        });
+    }
+
+    let result = render_input_tex(&engine, &TexOptions::default());
+    assert_eq!(
+        result.tex,
+        "\\[\n\\begin{array}{l}\nQ \\\\\nT_1 \\\\\nT_2 \\\\\n\\vdots \\\\\nT_Q\n\\end{array}\n\\]\n"
+    );
+}
+
+#[test]
+fn input_tex_repeat_tuple() {
+    let mut engine = AstEngine::new();
+    let m_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("M"),
+    });
+    let u_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("u"),
+    });
+    let v_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("v"),
+    });
+    let tuple_id = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![u_id, v_id],
+    });
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Reference::VariableRef(m_id),
+        body: vec![tuple_id],
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![m_id, repeat_id],
+        });
+    }
+
+    let result = render_input_tex(&engine, &TexOptions::default());
+    assert_eq!(
+        result.tex,
+        "\\[\n\\begin{array}{l}\nM \\\\\nu_1 \\ v_1 \\\\\nu_2 \\ v_2 \\\\\n\\vdots \\\\\nu_M \\ v_M\n\\end{array}\n\\]\n"
+    );
+}
+
+#[test]
+fn input_tex_hole() {
+    let mut engine = AstEngine::new();
+    let hole_id = engine.structure.add_node(NodeKind::Hole {
+        expected_kind: None,
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![hole_id],
+        });
+    }
+
+    let result = render_input_tex(&engine, &TexOptions::default());
+    assert!(result.tex.contains("\\texttt{<hole>}"));
+    assert_eq!(result.warnings.len(), 1);
+    assert!(matches!(
+        &result.warnings[0],
+        TexWarning::HoleEncountered { .. }
+    ));
+}
+
+#[test]
+fn input_tex_combined_n_array_repeat() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let q_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("Q"),
+    });
+    let header = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![n_id, q_id],
+    });
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("D"),
+        length: Reference::VariableRef(n_id),
+    });
+    let t_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("T"),
+    });
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Reference::VariableRef(q_id),
+        body: vec![t_id],
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![header, a_id, repeat_id],
+        });
+    }
+
+    let result = render_input_tex(&engine, &TexOptions::default());
+    let expected = "\
+\\[\n\
+\\begin{array}{l}\n\
+N \\ Q \\\\\n\
+D_1 \\ D_2 \\ \\cdots \\ D_N \\\\\n\
+T_1 \\\\\n\
+T_2 \\\\\n\
+\\vdots \\\\\n\
+T_Q\n\
+\\end{array}\n\
+\\]\n";
+    assert_eq!(result.tex, expected);
+}
