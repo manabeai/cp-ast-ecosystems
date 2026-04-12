@@ -4,3 +4,6 @@ pub mod constraint;
 pub mod constraint_set;
 pub mod expected_type;
 pub mod expression;
+
+pub use expected_type::ExpectedType;
+pub use expression::Expression;
