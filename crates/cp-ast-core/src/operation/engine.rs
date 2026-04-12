@@ -31,9 +31,11 @@ impl AstEngine {
     /// Returns `OperationError` if the action cannot be applied.
     pub fn apply(&mut self, action: &Action) -> Result<ApplyResult, OperationError> {
         match action {
-            Action::FillHole { .. } => todo!("T-08"),
-            Action::AddConstraint { .. } => todo!("T-09"),
-            Action::RemoveConstraint { .. } => todo!("T-09"),
+            Action::FillHole { target, fill } => self.fill_hole(*target, fill),
+            Action::AddConstraint { target, constraint } => {
+                self.add_constraint_op(*target, constraint)
+            }
+            Action::RemoveConstraint { constraint_id } => self.remove_constraint_op(*constraint_id),
             Action::ReplaceNode { .. } => todo!("T-09"),
             Action::AddSlotElement { .. } => todo!("T-09"),
             Action::RemoveSlotElement { .. } => todo!("T-09"),

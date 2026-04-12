@@ -148,3 +148,198 @@ fn constraint_def_all_kinds() {
     assert!(matches!(sum_bound, ConstraintDefKind::SumBound { .. }));
     assert!(matches!(guarantee, ConstraintDefKind::Guarantee { .. }));
 }
+
+// New tests for the implemented operations
+
+#[test]
+fn fill_hole_scalar_success() {
+    let mut engine = AstEngine::new();
+    // Add a hole to the structure
+    let hole_id = engine.structure.add_node(NodeKind::Hole {
+        expected_kind: None,
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![hole_id],
+        });
+    }
+
+    let result = engine.apply(&Action::FillHole {
+        target: hole_id,
+        fill: FillContent::Scalar {
+            name: "N".to_owned(),
+            typ: VarType::Int,
+        },
+    });
+
+    let result = result.unwrap();
+    // The hole itself is replaced (not a new node)
+    assert!(matches!(
+        engine.structure.get(hole_id).unwrap().kind(),
+        NodeKind::Scalar { .. }
+    ));
+    // TypeDecl constraint auto-added
+    assert!(!result.created_constraints.is_empty());
+}
+
+#[test]
+fn fill_hole_nonexistent_node_fails() {
+    let mut engine = AstEngine::new();
+    let result = engine.apply(&Action::FillHole {
+        target: NodeId::from_raw(999),
+        fill: FillContent::Scalar {
+            name: "N".to_owned(),
+            typ: VarType::Int,
+        },
+    });
+    assert!(matches!(result, Err(OperationError::NodeNotFound { .. })));
+}
+
+#[test]
+fn fill_hole_non_hole_fails() {
+    let mut engine = AstEngine::new();
+    let scalar_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let result = engine.apply(&Action::FillHole {
+        target: scalar_id,
+        fill: FillContent::Scalar {
+            name: "M".to_owned(),
+            typ: VarType::Int,
+        },
+    });
+    assert!(matches!(
+        result,
+        Err(OperationError::InvalidOperation { .. })
+    ));
+}
+
+#[test]
+fn fill_hole_array_creates_structure() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let hole_id = engine.structure.add_node(NodeKind::Hole {
+        expected_kind: None,
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, hole_id],
+        });
+    }
+
+    let _result = engine
+        .apply(&Action::FillHole {
+            target: hole_id,
+            fill: FillContent::Array {
+                name: "A".to_owned(),
+                element_type: VarType::Int,
+                length: LengthSpec::RefVar(n_id),
+            },
+        })
+        .unwrap();
+
+    // The hole is now an Array
+    assert!(matches!(
+        engine.structure.get(hole_id).unwrap().kind(),
+        NodeKind::Array { .. }
+    ));
+}
+
+#[test]
+fn add_constraint_range_success() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+
+    let result = engine
+        .apply(&Action::AddConstraint {
+            target: n_id,
+            constraint: ConstraintDef {
+                kind: ConstraintDefKind::Range {
+                    lower: "1".to_owned(),
+                    upper: "100".to_owned(),
+                },
+            },
+        })
+        .unwrap();
+
+    assert_eq!(result.created_constraints.len(), 1);
+    assert!(engine
+        .constraints
+        .get(result.created_constraints[0])
+        .is_some());
+}
+
+#[test]
+fn add_constraint_to_hole_allowed() {
+    // Rev.1 L-4: constraints can be pre-attached to holes
+    let mut engine = AstEngine::new();
+    let hole_id = engine.structure.add_node(NodeKind::Hole {
+        expected_kind: None,
+    });
+
+    let result = engine
+        .apply(&Action::AddConstraint {
+            target: hole_id,
+            constraint: ConstraintDef {
+                kind: ConstraintDefKind::TypeDecl { typ: VarType::Int },
+            },
+        })
+        .unwrap();
+
+    assert_eq!(result.created_constraints.len(), 1);
+}
+
+#[test]
+fn add_constraint_node_not_found_fails() {
+    let mut engine = AstEngine::new();
+    let result = engine.apply(&Action::AddConstraint {
+        target: NodeId::from_raw(999),
+        constraint: ConstraintDef {
+            kind: ConstraintDefKind::Distinct,
+        },
+    });
+    assert!(matches!(result, Err(OperationError::NodeNotFound { .. })));
+}
+
+#[test]
+fn remove_constraint_success() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+
+    // First add a constraint
+    let add_result = engine
+        .apply(&Action::AddConstraint {
+            target: n_id,
+            constraint: ConstraintDef {
+                kind: ConstraintDefKind::TypeDecl { typ: VarType::Int },
+            },
+        })
+        .unwrap();
+
+    let cid = add_result.created_constraints[0];
+
+    // Now remove it
+    let remove_result = engine
+        .apply(&Action::RemoveConstraint { constraint_id: cid })
+        .unwrap();
+    assert!(remove_result.affected_constraints.contains(&cid));
+    assert!(engine.constraints.get(cid).is_none());
+}
+
+#[test]
+fn remove_constraint_not_found_fails() {
+    let mut engine = AstEngine::new();
+    let result = engine.apply(&Action::RemoveConstraint {
+        constraint_id: ConstraintId::from_raw(999),
+    });
+    assert!(matches!(
+        result,
+        Err(OperationError::InvalidOperation { .. })
+    ));
+}

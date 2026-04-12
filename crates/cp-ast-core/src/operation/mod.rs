@@ -1,6 +1,8 @@
 pub mod action;
+mod constraint_ops;
 pub mod engine;
 pub mod error;
+mod fill_hole;
 pub mod result;
 pub mod types;
 
