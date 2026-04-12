@@ -1,0 +1,1 @@
+開発前に使用する言語に合ったCI(github actions)環境やlint等を設定し、ファイル変更時に自動検証用のhooksや(https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-hooks)commitときのpre-commit等の環境も整えること
