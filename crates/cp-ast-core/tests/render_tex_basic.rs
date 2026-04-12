@@ -1,4 +1,4 @@
-use cp_ast_core::constraint::{ArithOp, Expression};
+use cp_ast_core::constraint::{ArithOp, Constraint, DistinctUnit, Expression, SortOrder};
 use cp_ast_core::operation::AstEngine;
 use cp_ast_core::render_tex::{render_constraints_tex, render_input_tex, SectionMode, TexOptions};
 use cp_ast_core::render_tex::{tex_helpers, TexWarning};
@@ -202,4 +202,274 @@ fn index_allocator_sequential() {
     assert_eq!(alloc.allocate(), 'i');
     assert_eq!(alloc.allocate(), 'j');
     assert_eq!(alloc.allocate(), 'k');
+}
+
+// ---- Constraint TeX tests ----
+
+#[test]
+fn constraint_tex_scalar_range() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id],
+        });
+    }
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(1),
+            upper: Expression::BinOp {
+                op: ArithOp::Mul,
+                lhs: Box::new(Expression::Lit(2)),
+                rhs: Box::new(Expression::Pow {
+                    base: Box::new(Expression::Lit(10)),
+                    exp: Box::new(Expression::Lit(5)),
+                }),
+            },
+        },
+    );
+
+    let result = render_constraints_tex(&engine, &TexOptions::default());
+    assert_eq!(
+        result.tex,
+        "\\begin{itemize}\n  \\item $1 \\le N \\le 2 \\times 10^{5}$\n\\end{itemize}\n"
+    );
+    assert!(result.warnings.is_empty());
+}
+
+#[test]
+fn constraint_tex_array_element_with_index_range() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Reference::VariableRef(n_id),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, a_id],
+        });
+    }
+    engine.constraints.add(
+        Some(a_id),
+        Constraint::Range {
+            target: Reference::VariableRef(a_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Pow {
+                base: Box::new(Expression::Lit(10)),
+                exp: Box::new(Expression::Lit(9)),
+            },
+        },
+    );
+
+    let result = render_constraints_tex(&engine, &TexOptions::default());
+    assert_eq!(
+        result.tex,
+        "\\begin{itemize}\n  \\item $1 \\le A_i \\le 10^{9} \\ (1 \\le i \\le N)$\n\\end{itemize}\n"
+    );
+}
+
+#[test]
+fn constraint_tex_type_decl_skipped() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id],
+        });
+    }
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(n_id),
+            expected: cp_ast_core::constraint::ExpectedType::Int,
+        },
+    );
+
+    let result = render_constraints_tex(&engine, &TexOptions::default());
+    assert!(result.tex.is_empty());
+}
+
+#[test]
+fn constraint_tex_sum_bound() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id],
+        });
+    }
+    engine.constraints.add(
+        None,
+        Constraint::SumBound {
+            variable: Reference::VariableRef(n_id),
+            upper: Expression::BinOp {
+                op: ArithOp::Mul,
+                lhs: Box::new(Expression::Lit(2)),
+                rhs: Box::new(Expression::Pow {
+                    base: Box::new(Expression::Lit(10)),
+                    exp: Box::new(Expression::Lit(5)),
+                }),
+            },
+        },
+    );
+
+    let result = render_constraints_tex(&engine, &TexOptions::default());
+    assert_eq!(
+        result.tex,
+        "\\begin{itemize}\n  \\item $\\sum N \\le 2 \\times 10^{5}$\n\\end{itemize}\n"
+    );
+}
+
+#[test]
+fn constraint_tex_distinct() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Reference::VariableRef(n_id),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, a_id],
+        });
+    }
+    engine.constraints.add(
+        Some(a_id),
+        Constraint::Distinct {
+            elements: Reference::VariableRef(a_id),
+            unit: DistinctUnit::Element,
+        },
+    );
+
+    let result = render_constraints_tex(&engine, &TexOptions::default());
+    assert_eq!(
+        result.tex,
+        "\\begin{itemize}\n  \\item $A_i \\neq A_j \\ (i \\neq j)$\n\\end{itemize}\n"
+    );
+}
+
+#[test]
+fn constraint_tex_sorted() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Reference::VariableRef(n_id),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, a_id],
+        });
+    }
+    engine.constraints.add(
+        Some(a_id),
+        Constraint::Sorted {
+            elements: Reference::VariableRef(a_id),
+            order: SortOrder::Ascending,
+        },
+    );
+
+    let result = render_constraints_tex(&engine, &TexOptions::default());
+    assert_eq!(
+        result.tex,
+        "\\begin{itemize}\n  \\item $A_1 \\le A_2 \\le \\cdots \\le A_N$\n\\end{itemize}\n"
+    );
+}
+
+#[test]
+fn constraint_tex_string_length() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let s_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("S"),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, s_id],
+        });
+    }
+    engine.constraints.add(
+        Some(s_id),
+        Constraint::StringLength {
+            target: Reference::VariableRef(s_id),
+            min: Expression::Lit(1),
+            max: Expression::Var(Reference::VariableRef(n_id)),
+        },
+    );
+
+    let result = render_constraints_tex(&engine, &TexOptions::default());
+    assert_eq!(
+        result.tex,
+        "\\begin{itemize}\n  \\item $1 \\le |S| \\le N$\n\\end{itemize}\n"
+    );
+}
+
+#[test]
+fn constraint_tex_guarantee() {
+    let mut engine = AstEngine::new();
+    engine.constraints.add(
+        None,
+        Constraint::Guarantee {
+            description: "The answer always exists.".to_owned(),
+            predicate: None,
+        },
+    );
+
+    let result = render_constraints_tex(&engine, &TexOptions::default());
+    assert_eq!(
+        result.tex,
+        "\\begin{itemize}\n  \\item The answer always exists.\n\\end{itemize}\n"
+    );
+}
+
+#[test]
+fn constraint_tex_ordering() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id],
+        });
+    }
+    // Add in reverse order — Guarantee first, then Range
+    engine.constraints.add(
+        None,
+        Constraint::Guarantee {
+            description: "answer exists".to_owned(),
+            predicate: None,
+        },
+    );
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    let result = render_constraints_tex(&engine, &TexOptions::default());
+    // Range should come before Guarantee regardless of insertion order
+    let lines: Vec<&str> = result.tex.lines().collect();
+    assert!(lines[1].contains("1 \\le N \\le 10^{2}"));
+    assert!(lines[2].contains("answer exists"));
 }

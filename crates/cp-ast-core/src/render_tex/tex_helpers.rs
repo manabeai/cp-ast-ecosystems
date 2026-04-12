@@ -167,3 +167,19 @@ impl IndexAllocator {
         c
     }
 }
+
+/// Check if a Reference target is an Array node, and if so return (name, `length_ref`).
+#[must_use]
+pub fn resolve_array_info(
+    engine: &AstEngine,
+    reference: &Reference,
+) -> Option<(String, Reference)> {
+    if let Reference::VariableRef(node_id) = reference {
+        if let Some(node) = engine.structure.get(*node_id) {
+            if let NodeKind::Array { name, length } = node.kind() {
+                return Some((ident_to_tex(name), length.clone()));
+            }
+        }
+    }
+    None
+}
