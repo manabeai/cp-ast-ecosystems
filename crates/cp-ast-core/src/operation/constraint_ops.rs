@@ -108,7 +108,7 @@ fn convert_def_to_constraint(target: NodeId, kind: &ConstraintDefKind) -> Constr
 }
 
 /// Simple expression parser: try to parse as i64, otherwise treat as unresolved reference.
-fn parse_expression(s: &str) -> Expression {
+pub(super) fn parse_expression(s: &str) -> Expression {
     if let Ok(n) = s.parse::<i64>() {
         Expression::Lit(n)
     } else {

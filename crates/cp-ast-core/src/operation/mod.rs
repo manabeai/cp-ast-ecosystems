@@ -3,6 +3,8 @@ mod constraint_ops;
 pub mod engine;
 pub mod error;
 mod fill_hole;
+mod multi_test_case;
+mod node_ops;
 pub mod result;
 pub mod types;
 

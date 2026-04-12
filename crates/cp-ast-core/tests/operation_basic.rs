@@ -343,3 +343,172 @@ fn remove_constraint_not_found_fails() {
         Err(OperationError::InvalidOperation { .. })
     ));
 }
+
+#[test]
+fn replace_node_success() {
+    let mut engine = AstEngine::new();
+    let scalar_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+
+    let result = engine
+        .apply(&Action::ReplaceNode {
+            target: scalar_id,
+            replacement: FillContent::Array {
+                name: "A".to_owned(),
+                element_type: VarType::Int,
+                length: LengthSpec::Expr("N".to_owned()),
+            },
+        })
+        .unwrap();
+
+    assert!(matches!(
+        engine.structure.get(scalar_id).unwrap().kind(),
+        NodeKind::Array { .. }
+    ));
+    assert!(result.removed_nodes.is_empty()); // replace is in-place
+}
+
+#[test]
+fn replace_node_with_dependents_fails() {
+    let mut engine = AstEngine::new();
+    let scalar_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    // Add a constraint to create a dependent
+    engine
+        .apply(&Action::AddConstraint {
+            target: scalar_id,
+            constraint: ConstraintDef {
+                kind: ConstraintDefKind::Range {
+                    lower: "1".to_owned(),
+                    upper: "100".to_owned(),
+                },
+            },
+        })
+        .unwrap();
+
+    let result = engine.apply(&Action::ReplaceNode {
+        target: scalar_id,
+        replacement: FillContent::Scalar {
+            name: "M".to_owned(),
+            typ: VarType::Int,
+        },
+    });
+
+    assert!(matches!(
+        result,
+        Err(OperationError::InvalidOperation { .. })
+    ));
+}
+
+#[test]
+fn add_slot_element_to_sequence() {
+    let mut engine = AstEngine::new();
+    let root = engine.structure.root();
+
+    let result = engine
+        .apply(&Action::AddSlotElement {
+            parent: root,
+            slot_name: "children".to_owned(),
+            element: FillContent::Scalar {
+                name: "N".to_owned(),
+                typ: VarType::Int,
+            },
+        })
+        .unwrap();
+
+    assert_eq!(result.created_nodes.len(), 1);
+    // Verify the new node is in root's children
+    if let NodeKind::Sequence { children } = engine.structure.get(root).unwrap().kind() {
+        assert!(children.contains(&result.created_nodes[0]));
+    } else {
+        panic!("Root should be Sequence");
+    }
+}
+
+#[test]
+fn remove_slot_element_from_sequence() {
+    let mut engine = AstEngine::new();
+    let root = engine.structure.root();
+
+    // First add an element
+    let add_result = engine
+        .apply(&Action::AddSlotElement {
+            parent: root,
+            slot_name: "children".to_owned(),
+            element: FillContent::Scalar {
+                name: "N".to_owned(),
+                typ: VarType::Int,
+            },
+        })
+        .unwrap();
+
+    let child_id = add_result.created_nodes[0];
+
+    // Now remove it
+    let remove_result = engine
+        .apply(&Action::RemoveSlotElement {
+            parent: root,
+            slot_name: "children".to_owned(),
+            child: child_id,
+        })
+        .unwrap();
+
+    assert!(remove_result.removed_nodes.contains(&child_id));
+    assert!(!engine.structure.contains(child_id));
+}
+
+#[test]
+fn introduce_multi_test_case_success() {
+    let mut engine = AstEngine::new();
+    // Add some structure first
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id],
+        });
+    }
+
+    let result = engine
+        .apply(&Action::IntroduceMultiTestCase {
+            count_var_name: "T".to_owned(),
+            sum_bound: Some(SumBoundDef {
+                bound_var: "N".to_owned(),
+                upper: "200000".to_owned(),
+            }),
+        })
+        .unwrap();
+
+    // Should have created count var + repeat node
+    assert!(result.created_nodes.len() >= 2);
+    // Should have created SumBound constraint
+    assert!(!result.created_constraints.is_empty());
+}
+
+#[test]
+fn introduce_multi_test_case_already_exists_fails() {
+    let mut engine = AstEngine::new();
+    // Add a Repeat node manually (simulating existing multi-test-case)
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Reference::Unresolved(Ident::new("T")),
+        body: vec![],
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![repeat_id],
+        });
+    }
+
+    let result = engine.apply(&Action::IntroduceMultiTestCase {
+        count_var_name: "T".to_owned(),
+        sum_bound: None,
+    });
+
+    assert!(matches!(
+        result,
+        Err(OperationError::InvalidOperation { .. })
+    ));
+}

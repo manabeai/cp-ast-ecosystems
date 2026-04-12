@@ -36,10 +36,24 @@ impl AstEngine {
                 self.add_constraint_op(*target, constraint)
             }
             Action::RemoveConstraint { constraint_id } => self.remove_constraint_op(*constraint_id),
-            Action::ReplaceNode { .. } => todo!("T-09"),
-            Action::AddSlotElement { .. } => todo!("T-09"),
-            Action::RemoveSlotElement { .. } => todo!("T-09"),
-            Action::IntroduceMultiTestCase { .. } => todo!("T-09"),
+            Action::ReplaceNode {
+                target,
+                replacement,
+            } => self.replace_node(*target, replacement),
+            Action::AddSlotElement {
+                parent,
+                slot_name,
+                element,
+            } => self.add_slot_element(*parent, slot_name, element),
+            Action::RemoveSlotElement {
+                parent,
+                slot_name,
+                child,
+            } => self.remove_slot_element(*parent, slot_name, *child),
+            Action::IntroduceMultiTestCase {
+                count_var_name,
+                sum_bound,
+            } => self.introduce_multi_test_case(count_var_name, sum_bound.as_ref()),
         }
     }
 

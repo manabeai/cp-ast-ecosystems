@@ -59,7 +59,11 @@ impl AstEngine {
         })
     }
 
-    fn expand_fill_content(&mut self, fill: &FillContent, created: &mut Vec<NodeId>) -> NodeKind {
+    pub(crate) fn expand_fill_content(
+        &mut self,
+        fill: &FillContent,
+        created: &mut Vec<NodeId>,
+    ) -> NodeKind {
         match fill {
             FillContent::Scalar { name, .. } => NodeKind::Scalar {
                 name: Ident::new(name),
