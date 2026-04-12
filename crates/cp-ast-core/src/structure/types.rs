@@ -39,14 +39,22 @@ pub enum Literal {
 
 /// Hint for what kind of node is expected at a Hole position.
 /// Used by UI to suggest candidates.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum NodeKindHint {
+    /// Expects any scalar-like node (single value).
     AnyScalar,
+    /// Expects any array-like node (1D sequence).
     AnyArray,
+    /// Expects any matrix-like node (2D grid).
     AnyMatrix,
+    /// Expects any tuple-like node (fixed-size heterogeneous group).
     AnyTuple,
+    /// Expects any repeat-like node (dynamic repetition).
     AnyRepeat,
+    /// Expects any section-like node (input/output block).
     AnySection,
+    /// Expects any choice-like node (branching format).
     AnyChoice,
+    /// Any node kind is acceptable.
     Any,
 }
