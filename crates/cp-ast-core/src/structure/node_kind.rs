@@ -1,21 +1,39 @@
+use super::node_id::NodeId;
+use super::reference::Reference;
+use super::types::{Ident, Literal, NodeKindHint};
+
 /// The kind of structure node in a competitive programming problem specification.
 ///
-/// Each variant represents a structural concept recognized by competitive
-/// programming problem authors and readers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// Rev.1: Rich variants with embedded data. Type and separator info
+/// moved to `ConstraintAST` (`TypeDecl`, `RenderHint`).
+#[derive(Debug, Clone, PartialEq)]
 pub enum NodeKind {
-    /// A single value (e.g., `N`, `M`, `K`)
-    Scalar,
-    /// A one-dimensional sequence (e.g., `A_1`, `A_2`, ..., `A_N`)
-    Array,
-    /// A two-dimensional grid (e.g., H×W matrix)
-    Matrix,
-    /// A wrapper for T test cases
-    MultiTestCase,
-    /// A query structure with type-dependent sub-formats
-    Query,
-    /// A block describing input format
-    InputBlock,
-    /// A block describing output format
-    OutputBlock,
+    /// Single variable: N, M, S, etc.
+    Scalar { name: Ident },
+    /// 1D array: `A_1` ... `A_N`.
+    Array { name: Ident, length: Reference },
+    /// 2D grid: C[i][j], A_{i,j}.
+    Matrix {
+        name: Ident,
+        rows: Reference,
+        cols: Reference,
+    },
+    /// Same-line variable group: (N, M, K), (`u_i`, `v_i`).
+    Tuple { elements: Vec<NodeId> },
+    /// Variable-dependent repetition: M lines, T test cases.
+    Repeat { count: Reference, body: Vec<NodeId> },
+    /// Semantically delimited block: header + body.
+    Section {
+        header: Option<NodeId>,
+        body: Vec<NodeId>,
+    },
+    /// Ordered root of the entire input.
+    Sequence { children: Vec<NodeId> },
+    /// Tag-dependent branching (query type variants).
+    Choice {
+        tag: Reference,
+        variants: Vec<(Literal, Vec<NodeId>)>,
+    },
+    /// Unfilled position (first-class hole).
+    Hole { expected_kind: Option<NodeKindHint> },
 }
