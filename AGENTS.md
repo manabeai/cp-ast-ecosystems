@@ -28,3 +28,4 @@
 
 ## Other
 - call by execute command `copilot-session-end.sh` when yout task finished or you are waiting for user response
+- When invoking subagents, explicitly specify using Claude Opus model
