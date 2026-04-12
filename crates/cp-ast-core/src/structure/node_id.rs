@@ -16,6 +16,13 @@ impl NodeId {
         Self(NEXT_ID.fetch_add(1, Ordering::Relaxed))
     }
 
+    /// Create a `NodeId` from a raw value.
+    /// Used by arenas that manage their own ID allocation.
+    #[must_use]
+    pub fn from_raw(value: u64) -> Self {
+        Self(value)
+    }
+
     /// Returns the raw numeric value of this ID.
     #[must_use]
     pub fn value(self) -> u64 {
