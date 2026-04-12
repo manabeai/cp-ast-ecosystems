@@ -311,3 +311,125 @@ fn constraint_render_hint() {
     };
     assert!(matches!(c, Constraint::RenderHint { .. }));
 }
+
+// --- ConstraintSet tests ---
+
+#[test]
+fn constraint_set_empty() {
+    let set = ConstraintSet::new();
+    assert!(set.is_empty());
+    assert_eq!(set.len(), 0);
+}
+
+#[test]
+fn constraint_set_add_returns_id() {
+    let mut set = ConstraintSet::new();
+    let id = set.add(
+        Some(NodeId::from_raw(1)),
+        Constraint::Range {
+            target: Reference::VariableRef(NodeId::from_raw(1)),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+    assert_eq!(id.value(), 0); // first ID assigned
+}
+
+#[test]
+fn constraint_set_get_by_id() {
+    let mut set = ConstraintSet::new();
+    let id = set.add(
+        Some(NodeId::from_raw(1)),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(NodeId::from_raw(1)),
+            expected: ExpectedType::Int,
+        },
+    );
+    assert!(set.get(id).is_some());
+}
+
+#[test]
+fn constraint_set_remove_by_id() {
+    let mut set = ConstraintSet::new();
+    let id = set.add(
+        None,
+        Constraint::Guarantee {
+            description: "test".to_owned(),
+            predicate: None,
+        },
+    );
+    assert_eq!(set.len(), 1);
+    let removed = set.remove(id);
+    assert!(removed.is_some());
+    assert_eq!(set.len(), 0);
+    assert!(set.get(id).is_none());
+}
+
+#[test]
+fn constraint_set_for_node_returns_matching() {
+    let mut set = ConstraintSet::new();
+    let n = NodeId::from_raw(1);
+    let m = NodeId::from_raw(2);
+    set.add(
+        Some(n),
+        Constraint::Range {
+            target: Reference::VariableRef(n),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+    set.add(
+        Some(n),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(n),
+            expected: ExpectedType::Int,
+        },
+    );
+    set.add(
+        Some(m),
+        Constraint::Range {
+            target: Reference::VariableRef(m),
+            lower: Expression::Lit(0),
+            upper: Expression::Lit(50),
+        },
+    );
+    let n_ids = set.for_node(n);
+    assert_eq!(n_ids.len(), 2);
+    let m_ids = set.for_node(m);
+    assert_eq!(m_ids.len(), 1);
+}
+
+#[test]
+fn constraint_set_global_constraints() {
+    let mut set = ConstraintSet::new();
+    let g_id = set.add(
+        None,
+        Constraint::Guarantee {
+            description: "Input is valid".to_owned(),
+            predicate: None,
+        },
+    );
+    assert!(set.global().contains(&g_id));
+    assert_eq!(set.global().len(), 1);
+}
+
+#[test]
+fn constraint_set_iter_all() {
+    let mut set = ConstraintSet::new();
+    set.add(
+        Some(NodeId::from_raw(1)),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(NodeId::from_raw(1)),
+            expected: ExpectedType::Int,
+        },
+    );
+    set.add(
+        None,
+        Constraint::Guarantee {
+            description: "test".to_owned(),
+            predicate: None,
+        },
+    );
+    let all: Vec<_> = set.iter().collect();
+    assert_eq!(all.len(), 2);
+}

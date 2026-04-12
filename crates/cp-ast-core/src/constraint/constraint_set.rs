@@ -1,75 +1,111 @@
 use super::constraint::Constraint;
-use crate::structure::{NodeId, Reference};
+use super::constraint_id::ConstraintId;
+use crate::structure::NodeId;
 
-/// A composable set of constraints on the structure AST.
+/// Arena-based constraint set with `ConstraintId` addressing.
 ///
-/// Constraints can be queried by target node to determine what
-/// is allowed at each position.
+/// Rev.1 S-2: Constraints are identified by `ConstraintId` for precise
+/// `RemoveConstraint` operations. Supports per-node and global constraints.
 #[derive(Debug, Clone, Default)]
 pub struct ConstraintSet {
-    constraints: Vec<Constraint>,
+    arena: Vec<Option<Constraint>>,
+    by_node: Vec<(NodeId, Vec<ConstraintId>)>,
+    global: Vec<ConstraintId>,
+    next_id: u64,
 }
 
 impl ConstraintSet {
-    /// Create an empty constraint set.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Add a constraint to the set.
-    pub fn add(&mut self, constraint: Constraint) {
-        self.constraints.push(constraint);
+    /// Add a constraint. If `target` is Some, it's per-node; if None, it's global.
+    /// Returns the assigned `ConstraintId`.
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn add(&mut self, target: Option<NodeId>, constraint: Constraint) -> ConstraintId {
+        let id = ConstraintId::from_raw(self.next_id);
+        self.next_id += 1;
+        let idx = id.value() as usize;
+        if idx >= self.arena.len() {
+            self.arena.resize_with(idx + 1, || None);
+        }
+        self.arena[idx] = Some(constraint);
+        match target {
+            Some(node_id) => {
+                if let Some(entry) = self.by_node.iter_mut().find(|(n, _)| *n == node_id) {
+                    entry.1.push(id);
+                } else {
+                    self.by_node.push((node_id, vec![id]));
+                }
+            }
+            None => {
+                self.global.push(id);
+            }
+        }
+        id
     }
 
-    /// Returns the number of constraints in the set.
+    /// Remove a constraint by ID.
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn remove(&mut self, id: ConstraintId) -> Option<Constraint> {
+        let constraint = self.arena.get_mut(id.value() as usize)?.take()?;
+        // Remove from by_node index
+        for (_, ids) in &mut self.by_node {
+            ids.retain(|cid| *cid != id);
+        }
+        // Remove from global
+        self.global.retain(|cid| *cid != id);
+        Some(constraint)
+    }
+
+    /// Get a constraint by ID.
+    #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn get(&self, id: ConstraintId) -> Option<&Constraint> {
+        self.arena.get(id.value() as usize)?.as_ref()
+    }
+
+    /// Get constraint IDs for a specific node.
+    #[must_use]
+    pub fn for_node(&self, node: NodeId) -> Vec<ConstraintId> {
+        self.by_node
+            .iter()
+            .find(|(n, _)| *n == node)
+            .map_or_else(Vec::new, |(_, ids)| ids.clone())
+    }
+
+    /// Get global constraint IDs.
+    #[must_use]
+    pub fn global(&self) -> &[ConstraintId] {
+        &self.global
+    }
+
+    /// Count of live constraints.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.constraints.len()
+        self.arena.iter().filter(|c| c.is_some()).count()
     }
 
-    /// Returns `true` if the constraint set is empty.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.constraints.is_empty()
+        self.len() == 0
     }
 
-    /// Returns an iterator over constraints targeting the given node.
-    pub fn for_target(&self, target: NodeId) -> impl Iterator<Item = &Constraint> {
-        self.constraints
-            .iter()
-            .filter(move |c| constraint_targets_node(c, target))
-    }
-
-    /// Returns an iterator over all constraints.
-    pub fn iter(&self) -> impl Iterator<Item = &Constraint> {
-        self.constraints.iter()
-    }
-}
-
-/// Helper function to check if a constraint targets a specific `NodeId`.
-fn constraint_targets_node(constraint: &Constraint, node_id: NodeId) -> bool {
-    match constraint {
-        Constraint::Range { target, .. }
-        | Constraint::TypeDecl { target, .. }
-        | Constraint::LengthRelation { target, .. }
-        | Constraint::Distinct {
-            elements: target, ..
-        }
-        | Constraint::Property { target, .. }
-        | Constraint::SumBound {
-            variable: target, ..
-        }
-        | Constraint::Sorted {
-            elements: target, ..
-        }
-        | Constraint::CharSet { target, .. }
-        | Constraint::StringLength { target, .. }
-        | Constraint::RenderHint { target, .. } => match target {
-            Reference::VariableRef(id) | Reference::IndexedRef { target: id, .. } => *id == node_id,
-            Reference::Unresolved(_) => false,
-        },
-        // These constraints don't have a single target node
-        Constraint::Relation { .. } | Constraint::Guarantee { .. } => false,
+    /// Iterate over all live (`ConstraintId`, &Constraint) pairs.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the arena index cannot be converted to u64 (only possible on systems
+    /// where usize > u64, which is extremely unlikely).
+    pub fn iter(&self) -> impl Iterator<Item = (ConstraintId, &Constraint)> {
+        self.arena.iter().enumerate().filter_map(|(i, slot)| {
+            slot.as_ref().map(|c| {
+                (
+                    ConstraintId::from_raw(u64::try_from(i).expect("index fits u64")),
+                    c,
+                )
+            })
+        })
     }
 }
