@@ -6,3 +6,5 @@ pub mod structure_node;
 
 pub use node_id::NodeId;
 pub use node_kind::NodeKind;
+pub use slot::{HoleInfo, Slot, SlotValue};
+pub use structure_node::StructureNode;

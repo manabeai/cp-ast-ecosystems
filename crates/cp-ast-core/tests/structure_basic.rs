@@ -1,4 +1,4 @@
-use cp_ast_core::structure::{NodeId, NodeKind};
+use cp_ast_core::structure::{NodeId, NodeKind, Slot, StructureNode};
 
 #[test]
 fn node_id_unique() {
@@ -48,4 +48,34 @@ fn node_kind_all_variants_exist() {
     ];
     // Verify we have the expected number of variants
     assert_eq!(variants.len(), 7);
+}
+
+#[test]
+fn structure_node_with_filled_slots() {
+    let child = StructureNode::new(NodeKind::Scalar).with_name("N");
+
+    let parent =
+        StructureNode::new(NodeKind::InputBlock).with_slot(Slot::filled("first_var", child));
+
+    assert_eq!(parent.kind(), NodeKind::InputBlock);
+    assert_eq!(parent.slots().len(), 1);
+    assert_eq!(parent.slots()[0].name(), "first_var");
+    assert!(parent.slots()[0].is_filled());
+}
+
+#[test]
+fn structure_node_with_hole_slot() {
+    let node = StructureNode::new(NodeKind::InputBlock).with_slot(Slot::hole("missing_var"));
+
+    assert_eq!(node.slots().len(), 1);
+    assert!(node.slots()[0].is_hole());
+}
+
+#[test]
+fn structure_node_name() {
+    let node = StructureNode::new(NodeKind::Scalar).with_name("N");
+    assert_eq!(node.name(), Some("N"));
+
+    let unnamed = StructureNode::new(NodeKind::InputBlock);
+    assert_eq!(unnamed.name(), None);
 }

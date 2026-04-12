@@ -25,3 +25,6 @@
 ## Git
 - Pre-commit hooks: `.githooks/pre-commit` (fmt + clippy)
 - Configure: `git config core.hooksPath .githooks`
+
+## Other
+- call by execute command `copilot-session-end.sh` when yout task finished or you are waiting for user response
