@@ -27,6 +27,27 @@
 
 `render_tex/` は 36 テストで golden test カバレッジ確保済み。
 
+### Gap Resolution Phase（完了）
+
+Gaps A, B, H, D を解消。8 タスク (T-01〜T-08) 完了、テスト 204 通過。
+
+| タスク | 内容 | コミット |
+|-------|------|---------|
+| T-01 | NodeKind マイグレーション（Repeat.count/Array.length を Expression 化、index_var 追加） | 完了 |
+| T-02 | resolve_expression_as_int 完全実装（BinOp, Pow, FnCall, loop var 解決） | 完了 |
+| T-03 | ループ変数サポート（generate_repeat に loop_vars 管理追加） | 完了 |
+| T-04 | Choice in Repeat のスナップショット＋出力修正 | 完了 |
+| T-05 | プレーンテキスト描画改善（render_expression, Choice 表示） | 完了 |
+| T-06 | TeX 描画改善（expression_to_tex, Choice の cases 環境） | 完了 |
+| T-07 | E2E 統合テスト（Graph, 三角行列, Query 問題）＋ Tuple-in-Repeat 修正 | 完了 |
+| T-08 | ドキュメント更新 | 完了 |
+
+**解消したギャップ:**
+- Gap A (P0): `Repeat.count` が `Expression` を受け付け（N-1 辺のグラフ問題等）
+- Gap B (P1): Choice in Repeat の検証＋描画改善（クエリ型問題）
+- Gap H (P2): Repeat にループ変数追加（イテレーション番号を式中で参照可能）
+- Gap D (P2): 三角行列を Repeat+Array+ループ変数で表現（Matrix 変更不要）
+
 ---
 
 ## 未実装・今後のタスク
@@ -37,11 +58,8 @@ core 型の拡張と既存モジュールの強化。設計済みだが未着手
 
 | 項目 | 概要 | 優先度 |
 |------|------|--------|
-| Repeat.count の Expression 化 | `Reference` → `CountSpec(Reference \| Expression)` に拡張。固定回数繰り返し対応 | 高 |
-| Choice / Variant の NodeKind | クエリ問題の分岐入力対応（`Choice { variants }` + `Variant { tag, body }`） | 高 |
 | Tuple 内 inline Array | Tuple の要素に直接 Array を持てるように（`(A_i, B_i)` パターン） | 中 |
 | 文字列長・文字種制約の強化 | StringLength / CharSet の表現力向上 | 中 |
-| TeX renderer の Phase 2 追従 | 上記の型変更に合わせた render_tex/ の更新 | Phase 2 と連動 |
 
 ### 中期（インフラ・接続）
 
@@ -77,11 +95,11 @@ crates/cp-ast-core/src/
 ├── sample/        (4 files)  — テストケース生成
 └── lib.rs
 
-テスト: 178 passing (unit + integration + e2e)
+テスト: 204 passing (unit + integration + e2e)
 ```
 
 ## まとめ
 
-**完了**: AST Core の全基盤（構造・制約・操作・投影・テキスト描画・TeX 描画・サンプル生成）
+**完了**: AST Core の全基盤（構造・制約・操作・投影・テキスト描画・TeX 描画・サンプル生成）＋ Gap Resolution（Expression 化、ループ変数、Choice 描画改善）
 
-**次のステップ**: Phase 2 の core 型拡張（Repeat.count, Choice/Variant）、またはフロントエンド接続（WASM + 構造化エディタ）のどちらかに進む判断が必要。
+**次のステップ**: フロントエンド接続（WASM + 構造化エディタ）、またはさらなる core 型拡張（Tuple 内 inline Array、文字列制約強化）。
