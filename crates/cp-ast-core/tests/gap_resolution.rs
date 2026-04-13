@@ -373,3 +373,262 @@ fn e2e_query_problem_choice_in_repeat() {
     assert!(text.contains("If T = 1:"), "plain text: {text}");
     assert!(text.contains("If T = 2:"), "plain text: {text}");
 }
+
+/// P3-T02: Tuple with inline Array in Repeat body.
+///
+/// Pattern (`abc356_c` style):
+///   `M`
+///   `C_1 A_{1,1} ... A_{1,C_1} R_1`
+///   ...
+///   `C_M A_{M,1} ... A_{M,C_M} R_M`
+///
+/// A Tuple `(C, A[], R)` where A has length = C.
+/// Each output line should inline the array elements.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn e2e_tuple_inline_array_in_repeat() {
+    let mut engine = AstEngine::default();
+
+    // M — repeat count (fixed for determinism)
+    let m_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("M"),
+    });
+    engine.constraints.add(
+        Some(m_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(m_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(m_id),
+        Constraint::Range {
+            target: Reference::VariableRef(m_id),
+            lower: Expression::Lit(3),
+            upper: Expression::Lit(3),
+        },
+    );
+
+    // C — per-row element count
+    let c_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("C"),
+    });
+    engine.constraints.add(
+        Some(c_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(c_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(c_id),
+        Constraint::Range {
+            target: Reference::VariableRef(c_id),
+            lower: Expression::Lit(2),
+            upper: Expression::Lit(4),
+        },
+    );
+
+    // A — array with length = C
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Expression::Var(Reference::VariableRef(c_id)),
+    });
+    engine.constraints.add(
+        Some(a_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(a_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(a_id),
+        Constraint::Range {
+            target: Reference::IndexedRef {
+                target: a_id,
+                indices: vec![Ident::new("j")],
+            },
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(50),
+        },
+    );
+
+    // R — trailing scalar
+    let r_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("R"),
+    });
+    engine.constraints.add(
+        Some(r_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(r_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(r_id),
+        Constraint::Range {
+            target: Reference::VariableRef(r_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    // Tuple(C, A, R)
+    let tuple_id = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![c_id, a_id, r_id],
+    });
+
+    // Repeat(M) { Tuple }
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Expression::Var(Reference::VariableRef(m_id)),
+        index_var: None,
+        body: vec![tuple_id],
+    });
+
+    // Header line: M
+    let header_id = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![m_id],
+    });
+
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![header_id, repeat_id],
+        });
+
+    let sample = generate(&engine, 42).unwrap();
+    let output = sample_to_text(&engine, &sample);
+    let lines: Vec<&str> = output.trim().lines().collect();
+
+    // First line is M=3, then 3 body lines
+    assert_eq!(lines[0], "3", "header should be M=3");
+    assert_eq!(
+        lines.len(),
+        4,
+        "expected 4 lines (header + 3 body), got: {lines:?}"
+    );
+
+    for (i, line) in lines[1..].iter().enumerate() {
+        let parts: Vec<i64> = line
+            .split_whitespace()
+            .map(|s| s.parse().unwrap())
+            .collect();
+
+        let c = parts[0];
+        assert!((2..=4).contains(&c), "line {i}: C={c} should be in 2..=4");
+
+        // Total tokens = 1 (C) + C (array elements) + 1 (R)
+        let expected_len = 1 + usize::try_from(c).unwrap() + 1;
+        assert_eq!(
+            parts.len(),
+            expected_len,
+            "line {i}: expected {expected_len} tokens (C + {c} array elements + R), got {parts:?}",
+        );
+
+        // Verify array element ranges
+        for &elem in &parts[1..parts.len() - 1] {
+            assert!(
+                (1..=50).contains(&elem),
+                "line {i}: array element {elem} should be in 1..=50"
+            );
+        }
+
+        // Verify R range
+        let r = *parts.last().unwrap();
+        assert!(
+            (1..=100).contains(&r),
+            "line {i}: R={r} should be in 1..=100"
+        );
+    }
+}
+
+/// P3-T02: Top-level Tuple with inline Array (not inside Repeat).
+///
+/// Pattern: `N A_1 A_2 ... A_N` on a single line.
+#[test]
+fn e2e_tuple_inline_array_top_level() {
+    let mut engine = AstEngine::default();
+
+    // N — array length
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(n_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(4),
+            upper: Expression::Lit(4),
+        },
+    );
+
+    // A — array with length = N
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Expression::Var(Reference::VariableRef(n_id)),
+    });
+    engine.constraints.add(
+        Some(a_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(a_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(a_id),
+        Constraint::Range {
+            target: Reference::IndexedRef {
+                target: a_id,
+                indices: vec![Ident::new("i")],
+            },
+            lower: Expression::Lit(10),
+            upper: Expression::Lit(99),
+        },
+    );
+
+    // Tuple(N, A) — single line: N followed by array elements
+    let tuple_id = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![n_id, a_id],
+    });
+
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![tuple_id],
+        });
+
+    let sample = generate(&engine, 42).unwrap();
+    let output = sample_to_text(&engine, &sample);
+    let lines: Vec<&str> = output.trim().lines().collect();
+
+    assert_eq!(lines.len(), 1, "should be a single line, got: {lines:?}");
+
+    let parts: Vec<i64> = lines[0]
+        .split_whitespace()
+        .map(|s| s.parse().unwrap())
+        .collect();
+
+    assert_eq!(parts[0], 4, "first token should be N=4");
+    // N=4, so total tokens = 1 (N) + 4 (array) = 5
+    assert_eq!(parts.len(), 5, "expected 5 tokens, got: {parts:?}");
+
+    for &elem in &parts[1..] {
+        assert!(
+            (10..=99).contains(&elem),
+            "array element {elem} should be in 10..=99"
+        );
+    }
+}
