@@ -730,10 +730,13 @@ fn sample_to_text_with_repeat() {
         count: Reference::VariableRef(n_id),
         body: vec![x_id],
     });
+    let header = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![n_id],
+    });
 
     if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
         root.set_kind(NodeKind::Sequence {
-            children: vec![n_id, repeat_id],
+            children: vec![header, repeat_id],
         });
     }
 
@@ -835,20 +838,37 @@ fn generate_array_elements_bounded_by_variable() {
 #[test]
 fn generate_scalar_with_binop_variable_bound() {
     // N in [1, 10], M in [1, 2*N]
+    // Put M inside a Repeat with count=one (scalar set to 1) to establish dependency order
     let mut engine = AstEngine::new();
     let n_id = engine.structure.add_node(NodeKind::Scalar {
         name: Ident::new("N"),
     });
+    let one = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("one"),
+    });
     let m_id = engine.structure.add_node(NodeKind::Scalar {
         name: Ident::new("M"),
+    });
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Reference::VariableRef(one),
+        body: vec![m_id],
     });
 
     if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
         root.set_kind(NodeKind::Sequence {
-            children: vec![n_id, m_id],
+            children: vec![n_id, one, repeat_id],
         });
     }
 
+    // one = 1 (fixed)
+    engine.constraints.add(
+        Some(one),
+        Constraint::Range {
+            target: Reference::VariableRef(one),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(1),
+        },
+    );
     engine.constraints.add(
         Some(n_id),
         Constraint::Range {
@@ -876,7 +896,13 @@ fn generate_scalar_with_binop_variable_bound() {
             Some(SampleValue::Int(v)) => *v,
             _ => panic!("N should be Int"),
         };
-        let m_val = match sample.values.get(&m_id) {
+        // M is inside repeat body, so access via repeat_instances
+        let instances = sample
+            .repeat_instances
+            .get(&repeat_id)
+            .expect("should have repeat instances");
+        assert_eq!(instances.len(), 1, "Repeat with count=1 should have 1 iteration");
+        let m_val = match instances[0].get(&m_id) {
             Some(SampleValue::Int(v)) => *v,
             _ => panic!("M should be Int"),
         };
@@ -892,19 +918,28 @@ fn generate_scalar_with_binop_variable_bound() {
 fn generate_unresolved_reference_returns_error() {
     use cp_ast_core::sample::GenerationError;
 
-    // Array with unresolved length reference
+    // Constraint expression referencing non-existent variable
     let mut engine = AstEngine::new();
     let unknown_id = NodeId::from_raw(9999);
-    let a_id = engine.structure.add_node(NodeKind::Array {
-        name: Ident::new("A"),
-        length: Reference::VariableRef(unknown_id),
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
     });
 
     if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
         root.set_kind(NodeKind::Sequence {
-            children: vec![a_id],
+            children: vec![n_id],
         });
     }
+
+    // N in [1, unknown_variable] — expression references non-existent node
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Var(Reference::VariableRef(unknown_id)),
+        },
+    );
 
     let result = generate(&engine, 42);
     assert!(result.is_err(), "Should fail with unresolved reference");
