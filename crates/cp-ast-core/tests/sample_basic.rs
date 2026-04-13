@@ -1169,3 +1169,53 @@ fn generate_choice_empty_variants_error() {
         "Expected InvalidStructure for empty variants"
     );
 }
+
+#[test]
+fn generate_deterministic_with_config() {
+    use cp_ast_core::sample::{generate_with_config, GenerationConfig};
+
+    let engine = build_n_plus_array_engine();
+    let config = GenerationConfig {
+        max_retries: 50,
+        max_repeat_count: 1000,
+    };
+
+    let sample1 = generate_with_config(&engine, 42, config.clone()).unwrap();
+    let sample2 = generate_with_config(&engine, 42, config).unwrap();
+
+    assert_eq!(sample1.values.len(), sample2.values.len());
+    for (id, v1) in &sample1.values {
+        let v2 = sample2.values.get(id).expect("same keys");
+        assert_eq!(
+            v1, v2,
+            "Values for {id:?} should match with same seed+config"
+        );
+    }
+}
+
+#[test]
+fn generate_cycle_returns_error() {
+    use cp_ast_core::sample::GenerationError;
+
+    let mut engine = AstEngine::new();
+    let inner = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("X"),
+    });
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Reference::VariableRef(inner),
+        body: vec![inner],
+    });
+
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![repeat_id],
+        });
+    }
+
+    let result = generate(&engine, 42);
+    assert!(result.is_err());
+    assert!(
+        matches!(result.unwrap_err(), GenerationError::CycleDetected(_)),
+        "Expected CycleDetected error"
+    );
+}
