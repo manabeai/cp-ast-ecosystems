@@ -495,3 +495,610 @@ fn generate_hole_is_skipped() {
         "Hole node should not have a generated value"
     );
 }
+
+#[test]
+fn generate_repeat_expansion() {
+    // N=3, then repeat 3 times: each iteration has scalar X in [1, 100]
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let x_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("X"),
+    });
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Reference::VariableRef(n_id),
+        body: vec![x_id],
+    });
+
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, repeat_id],
+        });
+    }
+
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(3),
+            upper: Expression::Lit(3),
+        },
+    );
+    engine.constraints.add(
+        Some(x_id),
+        Constraint::Range {
+            target: Reference::VariableRef(x_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    let sample = generate(&engine, 42).unwrap();
+
+    // X should NOT be in top-level values (it's inside repeat)
+    assert!(
+        !sample.values.contains_key(&x_id),
+        "X should not be in top-level values"
+    );
+
+    // repeat_instances should have 3 iterations
+    let instances = sample
+        .repeat_instances
+        .get(&repeat_id)
+        .expect("repeat_instances should contain repeat node");
+    assert_eq!(instances.len(), 3, "Should have 3 iterations");
+
+    for (i, iteration) in instances.iter().enumerate() {
+        let val = iteration
+            .get(&x_id)
+            .unwrap_or_else(|| panic!("Iteration {i} should have X"));
+        if let SampleValue::Int(v) = val {
+            assert!(
+                (1..=100).contains(v),
+                "Iteration {i}: X={v} not in [1, 100]"
+            );
+        } else {
+            panic!("Expected Int for X in iteration {i}");
+        }
+    }
+}
+
+#[test]
+fn generate_repeat_body_child_inter_reference() {
+    // N=5, repeat N times: X in [1, 10], Y in [1, X]
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let x_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("X"),
+    });
+    let y_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("Y"),
+    });
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Reference::VariableRef(n_id),
+        body: vec![x_id, y_id],
+    });
+
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, repeat_id],
+        });
+    }
+
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(5),
+            upper: Expression::Lit(5),
+        },
+    );
+    engine.constraints.add(
+        Some(x_id),
+        Constraint::Range {
+            target: Reference::VariableRef(x_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(10),
+        },
+    );
+    engine.constraints.add(
+        Some(y_id),
+        Constraint::Range {
+            target: Reference::VariableRef(y_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Var(Reference::VariableRef(x_id)),
+        },
+    );
+
+    for seed in 0..50 {
+        let sample = generate(&engine, seed).unwrap();
+        let instances = sample
+            .repeat_instances
+            .get(&repeat_id)
+            .expect("should have repeat instances");
+        assert_eq!(instances.len(), 5);
+
+        for (i, iteration) in instances.iter().enumerate() {
+            let x_val = match iteration.get(&x_id) {
+                Some(SampleValue::Int(v)) => *v,
+                _ => panic!("seed {seed}, iter {i}: X should be Int"),
+            };
+            let y_val = match iteration.get(&y_id) {
+                Some(SampleValue::Int(v)) => *v,
+                _ => panic!("seed {seed}, iter {i}: Y should be Int"),
+            };
+            assert!(
+                (1..=x_val).contains(&y_val),
+                "seed {seed}, iter {i}: Y={y_val} not in [1, X={x_val}]"
+            );
+        }
+    }
+}
+
+#[test]
+fn generate_repeat_zero_count() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let x_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("X"),
+    });
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Reference::VariableRef(n_id),
+        body: vec![x_id],
+    });
+
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, repeat_id],
+        });
+    }
+
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(0),
+            upper: Expression::Lit(0),
+        },
+    );
+
+    let sample = generate(&engine, 42).unwrap();
+    let instances = sample.repeat_instances.get(&repeat_id).unwrap();
+    assert!(instances.is_empty(), "Repeat with count=0 should have 0 iterations");
+}
+
+#[test]
+fn generate_repeat_count_exceeds_limit() {
+    use cp_ast_core::sample::{generate_with_config, GenerationConfig, GenerationError};
+
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let x_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("X"),
+    });
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Reference::VariableRef(n_id),
+        body: vec![x_id],
+    });
+
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, repeat_id],
+        });
+    }
+
+    // N = 100, but max_repeat_count = 10
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(100),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    let config = GenerationConfig {
+        max_retries: 100,
+        max_repeat_count: 10,
+    };
+    let result = generate_with_config(&engine, 42, config);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(
+        matches!(err, GenerationError::InvalidStructure(_)),
+        "Expected InvalidStructure for repeat limit, got: {err}"
+    );
+}
+
+#[test]
+fn sample_to_text_with_repeat() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let x_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("X"),
+    });
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Reference::VariableRef(n_id),
+        body: vec![x_id],
+    });
+
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, repeat_id],
+        });
+    }
+
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(3),
+            upper: Expression::Lit(3),
+        },
+    );
+    engine.constraints.add(
+        Some(x_id),
+        Constraint::Range {
+            target: Reference::VariableRef(x_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    let sample = generate(&engine, 42).unwrap();
+    let text = sample_to_text(&engine, &sample);
+    let lines: Vec<&str> = text.trim().lines().collect();
+
+    // Line 0: N=3
+    assert_eq!(lines[0].trim(), "3", "First line should be N=3");
+    // Lines 1-3: one X value per line
+    assert_eq!(lines.len(), 4, "Should have 4 lines: N + 3 repeat iterations");
+    for (i, line) in lines[1..].iter().enumerate() {
+        let v: i64 = line.trim().parse().unwrap_or_else(|_| {
+            panic!("Line {} should be a parseable integer, got: {line:?}", i + 1)
+        });
+        assert!(
+            (1..=100).contains(&v),
+            "Repeat iteration {i}: value {v} not in [1, 100]"
+        );
+    }
+}
+
+#[test]
+fn generate_array_elements_bounded_by_variable() {
+    // N in [3, 10], A_i in [1, N] (variable upper bound)
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Reference::VariableRef(n_id),
+    });
+
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, a_id],
+        });
+    }
+
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(3),
+            upper: Expression::Lit(10),
+        },
+    );
+    // A_i in [1, N] — variable upper bound
+    engine.constraints.add(
+        Some(a_id),
+        Constraint::Range {
+            target: Reference::IndexedRef {
+                target: a_id,
+                indices: vec![Ident::new("i")],
+            },
+            lower: Expression::Lit(1),
+            upper: Expression::Var(Reference::VariableRef(n_id)),
+        },
+    );
+
+    for seed in 0..100 {
+        let sample = generate(&engine, seed).unwrap();
+        let n_val = match sample.values.get(&n_id) {
+            Some(SampleValue::Int(v)) => *v,
+            _ => panic!("N should be Int"),
+        };
+        let Some(SampleValue::Array(arr)) = sample.values.get(&a_id) else {
+            panic!("A should be Array")
+        };
+        for elem in arr {
+            if let SampleValue::Int(v) = elem {
+                assert!(
+                    (1..=n_val).contains(v),
+                    "seed {seed}: element {v} not in [1, {n_val}]"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn generate_scalar_with_binop_variable_bound() {
+    // N in [1, 10], M in [1, 2*N]
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let m_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("M"),
+    });
+
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, m_id],
+        });
+    }
+
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(10),
+        },
+    );
+    engine.constraints.add(
+        Some(m_id),
+        Constraint::Range {
+            target: Reference::VariableRef(m_id),
+            lower: Expression::Lit(1),
+            upper: Expression::BinOp {
+                op: ArithOp::Mul,
+                lhs: Box::new(Expression::Lit(2)),
+                rhs: Box::new(Expression::Var(Reference::VariableRef(n_id))),
+            },
+        },
+    );
+
+    for seed in 0..100 {
+        let sample = generate(&engine, seed).unwrap();
+        let n_val = match sample.values.get(&n_id) {
+            Some(SampleValue::Int(v)) => *v,
+            _ => panic!("N should be Int"),
+        };
+        let m_val = match sample.values.get(&m_id) {
+            Some(SampleValue::Int(v)) => *v,
+            _ => panic!("M should be Int"),
+        };
+        assert!(
+            (1..=2 * n_val).contains(&m_val),
+            "seed {seed}: M={m_val} not in [1, {}]",
+            2 * n_val
+        );
+    }
+}
+
+#[test]
+fn generate_unresolved_reference_returns_error() {
+    use cp_ast_core::sample::GenerationError;
+
+    // Array with unresolved length reference
+    let mut engine = AstEngine::new();
+    let unknown_id = NodeId::from_raw(9999);
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Reference::VariableRef(unknown_id),
+    });
+
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![a_id],
+        });
+    }
+
+    let result = generate(&engine, 42);
+    assert!(result.is_err(), "Should fail with unresolved reference");
+    let err = result.unwrap_err();
+    assert!(
+        matches!(err, GenerationError::UnresolvedReference(_)),
+        "Expected UnresolvedReference, got: {err}"
+    );
+}
+
+#[test]
+fn generate_range_empty_returns_error() {
+    use cp_ast_core::sample::GenerationError;
+
+    // N in [10, 5] — invalid range
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id],
+        });
+    }
+
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(10),
+            upper: Expression::Lit(5),
+        },
+    );
+
+    let result = generate(&engine, 42);
+    assert!(result.is_err(), "Should fail with empty range");
+    let err = result.unwrap_err();
+    assert!(
+        matches!(err, GenerationError::RangeEmpty { min: 10, max: 5 }),
+        "Expected RangeEmpty, got: {err}"
+    );
+}
+
+#[test]
+fn generate_choice_branching() {
+    // Choice with tag T, variants: (1, [X]), (2, [Y])
+    let mut engine = AstEngine::new();
+    let t_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("T"),
+    });
+    let x_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("X"),
+    });
+    let y_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("Y"),
+    });
+    let choice_id = engine.structure.add_node(NodeKind::Choice {
+        tag: Reference::VariableRef(t_id),
+        variants: vec![
+            (Literal::IntLit(1), vec![x_id]),
+            (Literal::IntLit(2), vec![y_id]),
+        ],
+    });
+
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![choice_id],
+        });
+    }
+
+    engine.constraints.add(
+        Some(x_id),
+        Constraint::Range {
+            target: Reference::VariableRef(x_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+    engine.constraints.add(
+        Some(y_id),
+        Constraint::Range {
+            target: Reference::VariableRef(y_id),
+            lower: Expression::Lit(200),
+            upper: Expression::Lit(300),
+        },
+    );
+
+    let sample = generate(&engine, 42).unwrap();
+
+    // Tag should be 1 or 2
+    let tag_val = match sample.values.get(&t_id) {
+        Some(SampleValue::Int(v)) => *v,
+        _ => panic!("Tag T should be Int"),
+    };
+    assert!(
+        tag_val == 1 || tag_val == 2,
+        "Tag should be 1 or 2, got {tag_val}"
+    );
+
+    if tag_val == 1 {
+        assert!(sample.values.contains_key(&x_id), "Variant 1: X should exist");
+        assert!(!sample.values.contains_key(&y_id), "Variant 1: Y should NOT exist");
+    } else {
+        assert!(!sample.values.contains_key(&x_id), "Variant 2: X should NOT exist");
+        assert!(sample.values.contains_key(&y_id), "Variant 2: Y should exist");
+    }
+}
+
+#[test]
+fn generate_choice_all_variants_reachable() {
+    let mut engine = AstEngine::new();
+    let t_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("T"),
+    });
+    let x_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("X"),
+    });
+    let y_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("Y"),
+    });
+    let choice_id = engine.structure.add_node(NodeKind::Choice {
+        tag: Reference::VariableRef(t_id),
+        variants: vec![
+            (Literal::IntLit(1), vec![x_id]),
+            (Literal::IntLit(2), vec![y_id]),
+        ],
+    });
+
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![choice_id],
+        });
+    }
+
+    engine.constraints.add(
+        Some(x_id),
+        Constraint::Range {
+            target: Reference::VariableRef(x_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+    engine.constraints.add(
+        Some(y_id),
+        Constraint::Range {
+            target: Reference::VariableRef(y_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    let mut saw_variant_1 = false;
+    let mut saw_variant_2 = false;
+
+    for seed in 0..200 {
+        let sample = generate(&engine, seed).unwrap();
+        match sample.values.get(&t_id) {
+            Some(SampleValue::Int(1)) => saw_variant_1 = true,
+            Some(SampleValue::Int(2)) => saw_variant_2 = true,
+            other => panic!("Unexpected tag value: {other:?}"),
+        }
+        if saw_variant_1 && saw_variant_2 {
+            break;
+        }
+    }
+
+    assert!(saw_variant_1, "Variant 1 was never selected in 200 seeds");
+    assert!(saw_variant_2, "Variant 2 was never selected in 200 seeds");
+}
+
+#[test]
+fn generate_choice_empty_variants_error() {
+    use cp_ast_core::sample::GenerationError;
+
+    let mut engine = AstEngine::new();
+    let t_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("T"),
+    });
+    let choice_id = engine.structure.add_node(NodeKind::Choice {
+        tag: Reference::VariableRef(t_id),
+        variants: vec![],
+    });
+
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![choice_id],
+        });
+    }
+
+    let result = generate(&engine, 42);
+    assert!(result.is_err());
+    assert!(
+        matches!(result.unwrap_err(), GenerationError::InvalidStructure(_)),
+        "Expected InvalidStructure for empty variants"
+    );
+}
