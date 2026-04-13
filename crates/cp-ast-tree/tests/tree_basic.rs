@@ -1,7 +1,9 @@
 use cp_ast_core::constraint::{Constraint, ExpectedType, Expression};
 use cp_ast_core::operation::AstEngine;
 use cp_ast_core::structure::{Ident, Literal, NodeKind, Reference};
-use cp_ast_tree::{render_constraint_tree, render_structure_tree, TreeOptions};
+use cp_ast_tree::{
+    render_combined_tree, render_constraint_tree, render_structure_tree, TreeOptions,
+};
 
 fn setup_graph_engine() -> AstEngine {
     let mut engine = AstEngine::new();
@@ -192,4 +194,72 @@ Sequence
         └── Scalar(Y)
 ";
     assert_eq!(output, expected);
+}
+
+#[test]
+fn combined_tree_basic() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Expression::Var(Reference::VariableRef(n_id)),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, a_id],
+        });
+    }
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(n_id),
+            expected: ExpectedType::Int,
+        },
+    );
+
+    let output = render_combined_tree(&engine, &TreeOptions::default());
+    assert!(output.contains("Scalar(N)  [1 ≤ N ≤ 100, N is integer]"));
+    assert!(output.contains("Array(A, len=N)"));
+}
+
+#[test]
+fn combined_tree_with_global_constraints() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id],
+        });
+    }
+    engine.constraints.add(
+        None,
+        Constraint::Guarantee {
+            description: "The answer is unique".to_owned(),
+            predicate: None,
+        },
+    );
+
+    let output = render_combined_tree(&engine, &TreeOptions::default());
+    assert!(output.contains("(global) The answer is unique"));
+}
+
+#[test]
+fn combined_tree_no_constraints() {
+    let engine = setup_graph_engine();
+    let output = render_combined_tree(&engine, &TreeOptions::default());
+    // Same as structure tree when no constraints exist
+    let structure_output = render_structure_tree(&engine, &TreeOptions::default());
+    assert_eq!(output, structure_output);
 }

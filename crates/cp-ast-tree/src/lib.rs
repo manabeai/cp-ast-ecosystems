@@ -5,10 +5,12 @@
 //! - `render_constraint_tree` — constraints grouped by target node
 //! - `render_combined_tree` — structure tree with inline constraint annotations
 
+pub mod combined_tree;
 pub mod constraint_tree;
 mod drawing;
 pub mod structure_tree;
 
+pub use combined_tree::render_combined_tree;
 pub use constraint_tree::render_constraint_tree;
 pub use structure_tree::render_structure_tree;
 
