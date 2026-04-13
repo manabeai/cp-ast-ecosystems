@@ -106,7 +106,7 @@ fn render_constraint(engine: &AstEngine, constraint: &Constraint) -> String {
         Constraint::Guarantee { description, .. } => description.clone(),
         Constraint::CharSet { target, charset } => {
             let target_str = render_reference(engine, target);
-            format!("{target_str} ∈ {charset:?}")
+            format!("{target_str} ∈ {charset}")
         }
         Constraint::StringLength { target, min, max } => {
             let target_str = render_reference(engine, target);
