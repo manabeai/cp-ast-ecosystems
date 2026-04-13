@@ -1347,3 +1347,183 @@ fn repeat_with_literal_count() {
     let sample = generate(&engine, 42).unwrap();
     assert_eq!(sample.repeat_instances[&repeat_id].len(), 3);
 }
+
+#[test]
+fn repeat_with_loop_variable_basic() {
+    // Triangular pattern: row i has (i+1) elements
+    let mut engine = AstEngine::default();
+
+    // N = 3
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(n_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(3),
+            upper: Expression::Lit(3),
+        },
+    );
+
+    // Array C with length = i + 1 (loop variable)
+    let c_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("C"),
+        length: Expression::BinOp {
+            op: ArithOp::Add,
+            lhs: Box::new(Expression::Var(Reference::Unresolved(Ident::new("i")))),
+            rhs: Box::new(Expression::Lit(1)),
+        },
+    });
+    engine.constraints.add(
+        Some(c_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(c_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(c_id),
+        Constraint::Range {
+            target: Reference::IndexedRef {
+                target: c_id,
+                indices: vec![Ident::new("j")],
+            },
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(9),
+        },
+    );
+
+    // Repeat N times with index_var "i"
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Expression::Var(Reference::VariableRef(n_id)),
+        index_var: Some(Ident::new("i")),
+        body: vec![c_id],
+    });
+
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![n_id, repeat_id],
+        });
+
+    let sample = generate(&engine, 42).unwrap();
+
+    // 3 iterations
+    let instances = &sample.repeat_instances[&repeat_id];
+    assert_eq!(instances.len(), 3);
+
+    // Row 0: i=0, length = 0+1 = 1 element
+    // Row 1: i=1, length = 1+1 = 2 elements
+    // Row 2: i=2, length = 2+1 = 3 elements
+    for (i, iteration) in instances.iter().enumerate() {
+        if let Some(SampleValue::Array(elements)) = iteration.get(&c_id) {
+            assert_eq!(
+                elements.len(),
+                i + 1,
+                "row {i} should have {} elements, got {}",
+                i + 1,
+                elements.len()
+            );
+        } else {
+            panic!("row {i} missing array value for c_id");
+        }
+    }
+}
+
+#[test]
+fn repeat_with_loop_variable_decreasing() {
+    // Decreasing pattern: row i has (N-i) elements
+    let mut engine = AstEngine::default();
+
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(n_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(3),
+            upper: Expression::Lit(3),
+        },
+    );
+
+    // Array with length = N - i
+    let c_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("C"),
+        length: Expression::BinOp {
+            op: ArithOp::Sub,
+            lhs: Box::new(Expression::Var(Reference::VariableRef(n_id))),
+            rhs: Box::new(Expression::Var(Reference::Unresolved(Ident::new("i")))),
+        },
+    });
+    engine.constraints.add(
+        Some(c_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(c_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(c_id),
+        Constraint::Range {
+            target: Reference::IndexedRef {
+                target: c_id,
+                indices: vec![Ident::new("j")],
+            },
+            lower: Expression::Lit(0),
+            upper: Expression::Lit(9),
+        },
+    );
+
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Expression::Var(Reference::VariableRef(n_id)),
+        index_var: Some(Ident::new("i")),
+        body: vec![c_id],
+    });
+
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![n_id, repeat_id],
+        });
+
+    let sample = generate(&engine, 42).unwrap();
+    let instances = &sample.repeat_instances[&repeat_id];
+    assert_eq!(instances.len(), 3);
+
+    // Row 0: N-0=3 elements, Row 1: N-1=2 elements, Row 2: N-2=1 element
+    for (i, iteration) in instances.iter().enumerate() {
+        if let Some(SampleValue::Array(elements)) = iteration.get(&c_id) {
+            let expected = 3 - i;
+            assert_eq!(
+                elements.len(),
+                expected,
+                "row {i} should have {expected} elements, got {}",
+                elements.len()
+            );
+        } else {
+            panic!("row {i} missing array value for c_id");
+        }
+    }
+}

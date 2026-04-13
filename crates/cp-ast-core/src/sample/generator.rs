@@ -567,7 +567,7 @@ impl<'a> GenerationContext<'a> {
         &mut self,
         node_id: NodeId,
         count_expr: &Expression,
-        _index_var: Option<&Ident>,
+        index_var: Option<&Ident>,
         body: &[NodeId],
     ) -> Result<(), GenerationError> {
         let count = self.resolve_expression_as_int(count_expr)?;
@@ -583,7 +583,13 @@ impl<'a> GenerationContext<'a> {
 
         let mut instances = Vec::with_capacity(count_usize);
 
-        for _i in 0..count_usize {
+        for i in 0..count_usize {
+            // Set loop variable if present
+            if let Some(var_name) = index_var {
+                self.loop_vars
+                    .insert(var_name.clone(), i64::try_from(i).unwrap_or(0));
+            }
+
             // Generate body children into self.values so they can reference
             // each other within the same iteration (e.g., Y depends on X).
             for &child_id in body {
@@ -606,6 +612,11 @@ impl<'a> GenerationContext<'a> {
             for &child_id in body {
                 self.values.remove(&child_id);
             }
+        }
+
+        // Remove loop variable after loop
+        if let Some(var_name) = index_var {
+            self.loop_vars.remove(var_name);
         }
 
         self.repeat_instances.insert(node_id, instances);
