@@ -9,6 +9,7 @@
 //! ```
 //!
 //! 使用 `NodeKind`: `Scalar`, `Matrix`, `Tuple`, `Sequence`
+//! 使用 `Constraint`: `Range`, `TypeDecl`, `Guarantee`
 
 use cp_ast_core::constraint::{Constraint, ExpectedType, Expression};
 use cp_ast_core::operation::AstEngine;

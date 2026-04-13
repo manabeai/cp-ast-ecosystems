@@ -9,6 +9,7 @@
 //! ```
 //!
 //! 使用 `NodeKind`: `Scalar`, `Repeat`, `Sequence`
+//! 使用 `Constraint`: `Range`, `TypeDecl`, `CharSet`, `StringLength`
 
 use cp_ast_core::constraint::{CharSetSpec, Constraint, ExpectedType, Expression};
 use cp_ast_core::operation::AstEngine;

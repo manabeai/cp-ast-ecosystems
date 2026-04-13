@@ -4,6 +4,7 @@
 //! 設計中・解析途中の AST を表現するのに使う。
 //!
 //! 使用 `NodeKind`: `Scalar`, `Hole`, `Sequence`
+//! 使用 `Constraint`: なし
 
 use cp_ast_core::operation::AstEngine;
 use cp_ast_core::structure::{Ident, NodeKind, NodeKindHint};

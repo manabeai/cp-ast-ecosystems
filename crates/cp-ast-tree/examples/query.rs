@@ -14,6 +14,7 @@
 //! ```
 //!
 //! 使用 `NodeKind`: `Scalar`, `Tuple`, `Choice`, `Repeat`, `Sequence`
+//! 使用 `Constraint`: `Range`, `TypeDecl`
 
 use cp_ast_core::constraint::{Constraint, ExpectedType, Expression};
 use cp_ast_core::operation::AstEngine;
