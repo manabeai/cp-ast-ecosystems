@@ -124,8 +124,12 @@ fn constraint_tree_basic() {
     let output = render_constraint_tree(&engine, &TreeOptions::default());
     assert!(output.contains("Constraints"));
     assert!(output.contains('N'));
-    assert!(output.contains("1 ≤ N ≤ 10^5"));
-    assert!(output.contains("N is integer"));
+    assert!(output.contains("Range"));
+    assert!(output.contains("target: N"));
+    assert!(output.contains("lower: 1"));
+    assert!(output.contains("Pow"));
+    assert!(output.contains("TypeDecl"));
+    assert!(output.contains("type: Int"));
 }
 
 #[test]

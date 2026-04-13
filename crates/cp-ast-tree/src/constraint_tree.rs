@@ -3,122 +3,119 @@
 use std::fmt::Write;
 
 use cp_ast_core::operation::AstEngine;
-use cp_ast_core::render::render_single_constraint;
+use cp_ast_core::render::{constraint_to_tree, ConstraintNode};
 use cp_ast_core::structure::node_display_name;
 
 use crate::TreeOptions;
 
+struct Group {
+    label: String,
+    nodes: Vec<(ConstraintNode, Option<u64>)>,
+}
+
 /// Render constraints grouped by target node as an ASCII tree.
+///
+/// Each constraint is expanded as a proper AST subtree rather than a flat
+/// text string. Expressions with sub-structure (e.g. `Pow`, `BinOp`) are
+/// shown as nested nodes; simple leaves (`Lit`, single `Var`) are inlined.
 ///
 /// Output format:
 /// ```text
 /// Constraints
 /// ├── N
-/// │   ├── 1 ≤ N ≤ 100000
-/// │   └── N is integer
+/// │   └── Range
+/// │       ├── target: N
+/// │       ├── lower: 1
+/// │       └── upper
+/// │           └── Pow
+/// │               ├── 10
+/// │               └── 5
 /// └── (global)
-///     └── Property: Simple graph
+///     └── Guarantee: Simple graph
 /// ```
 #[must_use]
 pub fn render_constraint_tree(engine: &AstEngine, options: &TreeOptions) -> String {
     let mut output = String::from("Constraints\n");
+    let groups = collect_groups(engine, options);
 
-    let mut groups: Vec<GroupEntry> = Vec::new();
-
-    // Collect per-node constraint groups
-    for (node_id, constraint_ids) in engine.constraints.nodes_with_constraints() {
-        let node_label = node_display_name(engine, node_id);
-
-        let mut items: Vec<ConstraintItem> = Vec::new();
-        for &cid in constraint_ids {
-            if let Some(constraint) = engine.constraints.get(cid) {
-                let text = render_single_constraint(engine, constraint);
-                if text.is_empty() {
-                    continue;
-                }
-                items.push(ConstraintItem {
-                    text,
-                    constraint_id: if options.show_constraint_ids {
-                        Some(cid.value())
-                    } else {
-                        None
-                    },
-                });
-            }
-        }
-        if !items.is_empty() {
-            groups.push(GroupEntry {
-                label: node_label,
-                items,
-            });
-        }
-    }
-
-    // Collect global constraints
-    let global_ids = engine.constraints.global();
-    if !global_ids.is_empty() {
-        let mut items: Vec<ConstraintItem> = Vec::new();
-        for &cid in global_ids {
-            if let Some(constraint) = engine.constraints.get(cid) {
-                let text = render_single_constraint(engine, constraint);
-                if text.is_empty() {
-                    continue;
-                }
-                items.push(ConstraintItem {
-                    text,
-                    constraint_id: if options.show_constraint_ids {
-                        Some(cid.value())
-                    } else {
-                        None
-                    },
-                });
-            }
-        }
-        if !items.is_empty() {
-            groups.push(GroupEntry {
-                label: "(global)".to_owned(),
-                items,
-            });
-        }
-    }
-
-    // Render groups as a tree
     for (gi, group) in groups.iter().enumerate() {
         let is_last_group = gi + 1 == groups.len();
-        let group_connector = if is_last_group {
+        let gconn = if is_last_group {
             "└── "
         } else {
             "├── "
         };
-        let group_continuation = if is_last_group { "    " } else { "│   " };
+        let gpad = if is_last_group { "    " } else { "│   " };
 
-        let _ = writeln!(output, "{group_connector}{}", group.label);
+        let _ = writeln!(output, "{gconn}{}", group.label);
 
-        for (ci, item) in group.items.iter().enumerate() {
-            let is_last_item = ci + 1 == group.items.len();
-            let item_connector = if is_last_item {
-                "└── "
-            } else {
-                "├── "
+        for (ci, (node, cid)) in group.nodes.iter().enumerate() {
+            let is_last = ci + 1 == group.nodes.len();
+            let iconn = if is_last { "└── " } else { "├── " };
+            let ipad = if is_last { "    " } else { "│   " };
+
+            let label = match cid {
+                Some(id) => format!("[C{id}] {}", node.label),
+                None => node.label.clone(),
             };
 
-            let label = match item.constraint_id {
-                Some(id) => format!("[C{}] {}", id, item.text),
-                None => item.text.clone(),
-            };
-            let _ = writeln!(output, "{group_continuation}{item_connector}{label}");
+            let _ = writeln!(output, "{gpad}{iconn}{label}");
+            render_children(&node.children, &format!("{gpad}{ipad}"), &mut output);
         }
     }
 
     output
 }
 
-struct GroupEntry {
-    label: String,
-    items: Vec<ConstraintItem>,
+fn collect_groups(engine: &AstEngine, options: &TreeOptions) -> Vec<Group> {
+    let mut groups: Vec<Group> = Vec::new();
+
+    for (node_id, constraint_ids) in engine.constraints.nodes_with_constraints() {
+        let label = node_display_name(engine, node_id);
+        let nodes = build_nodes(engine, options, constraint_ids);
+        if !nodes.is_empty() {
+            groups.push(Group { label, nodes });
+        }
+    }
+
+    let global_ids = engine.constraints.global();
+    if !global_ids.is_empty() {
+        let nodes = build_nodes(engine, options, global_ids);
+        if !nodes.is_empty() {
+            groups.push(Group {
+                label: "(global)".to_owned(),
+                nodes,
+            });
+        }
+    }
+
+    groups
 }
 
-struct ConstraintItem {
-    text: String,
-    constraint_id: Option<u64>,
+fn build_nodes(
+    engine: &AstEngine,
+    options: &TreeOptions,
+    ids: &[cp_ast_core::constraint::ConstraintId],
+) -> Vec<(ConstraintNode, Option<u64>)> {
+    let mut nodes = Vec::new();
+    for &cid in ids {
+        if let Some(constraint) = engine.constraints.get(cid) {
+            if let Some(tree) = constraint_to_tree(engine, constraint) {
+                let id = options.show_constraint_ids.then(|| cid.value());
+                nodes.push((tree, id));
+            }
+        }
+    }
+    nodes
+}
+
+/// Recursively render child [`ConstraintNode`]s as an ASCII subtree.
+fn render_children(children: &[ConstraintNode], prefix: &str, output: &mut String) {
+    for (i, child) in children.iter().enumerate() {
+        let is_last = i + 1 == children.len();
+        let branch = if is_last { "└── " } else { "├── " };
+        let indent = if is_last { "    " } else { "│   " };
+        let _ = writeln!(output, "{prefix}{branch}{}", child.label);
+        render_children(&child.children, &format!("{prefix}{indent}"), output);
+    }
 }

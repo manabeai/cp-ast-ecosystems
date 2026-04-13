@@ -3,9 +3,11 @@
 //! This module provides functions to render competitive-programming-style
 //! input format text and human-readable constraint text.
 
+pub mod constraint_ast;
 pub mod constraint_text;
 pub mod input_format;
 
+pub use constraint_ast::{constraint_to_tree, ConstraintNode};
 pub use constraint_text::{render_constraints, render_single_constraint};
 pub use input_format::render_input;
 
