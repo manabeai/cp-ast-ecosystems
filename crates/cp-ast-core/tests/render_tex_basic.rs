@@ -539,7 +539,7 @@ fn input_tex_array() {
     let result = render_input_tex(&engine, &TexOptions::default());
     assert_eq!(
         result.tex,
-        "\\[\n\\begin{array}{l}\nN \\\\\nA_1 \\ A_2 \\ \\cdots \\ A_N\n\\end{array}\n\\]\n"
+        "\\[\n\\begin{array}{l}\nN \\\\\nA_1 \\ A_2 \\ \\cdots \\ A_{N}\n\\end{array}\n\\]\n"
     );
 }
 
@@ -659,7 +659,7 @@ fn input_tex_combined_n_array_repeat() {
 \\[\n\
 \\begin{array}{l}\n\
 N \\ Q \\\\\n\
-D_1 \\ D_2 \\ \\cdots \\ D_N \\\\\n\
+D_1 \\ D_2 \\ \\cdots \\ D_{N} \\\\\n\
 T_1 \\\\\n\
 T_2 \\\\\n\
 \\vdots \\\\\n\
@@ -846,4 +846,93 @@ fn include_holes_false_suppresses_holes() {
     let result = render_input_tex(&engine, &options);
     assert!(!result.tex.contains("hole"));
     assert!(result.warnings.is_empty());
+}
+
+#[test]
+fn tex_expression_count_repeat() {
+    let mut engine = AstEngine::default();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let u_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("u"),
+    });
+    let v_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("v"),
+    });
+    let tuple_id = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![u_id, v_id],
+    });
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Expression::BinOp {
+            op: ArithOp::Sub,
+            lhs: Box::new(Expression::Var(Reference::VariableRef(n_id))),
+            rhs: Box::new(Expression::Lit(1)),
+        },
+        index_var: None,
+        body: vec![tuple_id],
+    });
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![n_id, repeat_id],
+        });
+
+    let result = render_input_tex(&engine, &TexOptions::default());
+    assert!(
+        result.tex.contains("N - 1"),
+        "should contain N - 1, got: {}",
+        result.tex
+    );
+}
+
+#[test]
+fn tex_choice_cases_environment() {
+    use cp_ast_core::structure::Literal;
+
+    let mut engine = AstEngine::default();
+    let t_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("T"),
+    });
+    let x_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("X"),
+    });
+    let y_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("Y"),
+    });
+    let choice_id = engine.structure.add_node(NodeKind::Choice {
+        tag: Reference::VariableRef(t_id),
+        variants: vec![
+            (Literal::IntLit(1), vec![x_id]),
+            (Literal::IntLit(2), vec![y_id]),
+        ],
+    });
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![choice_id],
+        });
+
+    let result = render_input_tex(&engine, &TexOptions::default());
+    assert!(
+        result.tex.contains("\\begin{cases}"),
+        "should use cases environment, got: {}",
+        result.tex
+    );
+    assert!(
+        result.tex.contains("\\text{if }"),
+        "should have 'if' labels, got: {}",
+        result.tex
+    );
+    assert!(
+        result.tex.contains("\\end{cases}"),
+        "should close cases environment, got: {}",
+        result.tex
+    );
 }

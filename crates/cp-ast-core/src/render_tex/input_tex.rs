@@ -1,10 +1,9 @@
 //! Input format TeX rendering.
 
-use crate::constraint::Expression;
 use crate::operation::AstEngine;
 use crate::structure::{NodeId, NodeKind};
 
-use super::tex_helpers::{ident_to_tex, reference_to_tex};
+use super::tex_helpers::{expression_to_tex, ident_to_tex, reference_to_tex};
 use super::{TexOptions, TexOutput, TexWarning};
 
 /// Render input format as TeX array layout.
@@ -81,12 +80,9 @@ fn collect_lines(
         }
         NodeKind::Array { name, length } => {
             let name_str = ident_to_tex(name);
-            let length_str = match length {
-                Expression::Var(r) => reference_to_tex(engine, r, warnings),
-                _ => format!("{length:?}"),
-            };
+            let length_str = expression_to_tex(engine, length, warnings);
             lines.push(format!(
-                "{name_str}_1 \\ {name_str}_2 \\ \\cdots \\ {name_str}_{length_str}"
+                "{name_str}_1 \\ {name_str}_2 \\ \\cdots \\ {name_str}_{{{length_str}}}"
             ));
         }
         NodeKind::Matrix { name, rows, cols } => {
@@ -109,10 +105,7 @@ fn collect_lines(
             ));
         }
         NodeKind::Repeat { count, body, .. } => {
-            let count_str = match count {
-                Expression::Var(r) => reference_to_tex(engine, r, warnings),
-                _ => format!("{count:?}"),
-            };
+            let count_str = expression_to_tex(engine, count, warnings);
             render_repeat_lines(engine, &count_str, body, lines, warnings, options);
         }
         NodeKind::Section { body, .. } => {
@@ -131,8 +124,25 @@ fn collect_lines(
                 lines.push("\\texttt{<hole>}".to_owned());
             }
         }
-        NodeKind::Choice { .. } => {
-            lines.push("\\texttt{(choice)}".to_owned());
+        NodeKind::Choice { tag, variants } => {
+            let tag_str = reference_to_tex(engine, tag, warnings);
+            lines.push("\\begin{cases}".to_owned());
+            for (i, (literal, children)) in variants.iter().enumerate() {
+                let mut variant_lines = Vec::new();
+                for &child_id in children {
+                    collect_lines(engine, child_id, &mut variant_lines, warnings, options);
+                }
+                let body_str = variant_lines.join(" \\ ");
+                let lit_str = match literal {
+                    crate::structure::Literal::IntLit(v) => v.to_string(),
+                    crate::structure::Literal::StrLit(s) => format!("\\text{{{s}}}"),
+                };
+                let separator = if i + 1 < variants.len() { " \\\\" } else { "" };
+                lines.push(format!(
+                    "{body_str} & \\text{{if }} {tag_str} = {lit_str}{separator}"
+                ));
+            }
+            lines.push("\\end{cases}".to_owned());
         }
     }
 }
