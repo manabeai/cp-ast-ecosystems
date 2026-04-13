@@ -55,12 +55,16 @@ The current `sample/` module generates random test cases from AST but has critic
 
 ```rust
 pub struct GenerationConfig {
-    pub max_retries: u32,    // Default: 100
+    pub max_retries: u32,        // Default: 100
+    pub max_repeat_count: usize, // Default: 500_000
 }
 
 impl Default for GenerationConfig {
     fn default() -> Self {
-        Self { max_retries: 100 }
+        Self {
+            max_retries: 100,
+            max_repeat_count: 500_000,
+        }
     }
 }
 
@@ -123,10 +127,11 @@ impl GenerationContext<'_> {
                 }
             }
             Reference::IndexedRef { .. } => {
-                // Indexed refs (A[i]) are not resolvable at generation time
-                // because the index variable is a loop variable, not a generated value.
+                // IndexedRef depends on loop variables or quantified indices,
+                // which have no concrete value at generation time.
+                // Phase A explicitly does NOT support indexed reference resolution.
                 Err(GenerationError::InvalidExpression(
-                    "indexed reference in generation context".into()
+                    "indexed reference in generation context (unsupported in Phase A)".into()
                 ))
             }
             Reference::Unresolved(name) => {
@@ -152,7 +157,8 @@ impl GenerationContext<'_> {
                 if evaluated.len() != 1 {
                     return Err(GenerationError::InvalidExpression("abs() requires 1 arg".into()));
                 }
-                Ok(evaluated[0].abs())
+                evaluated[0].checked_abs()
+                    .ok_or(GenerationError::InvalidExpression("abs() overflow (i64::MIN)".into()))
             }
             _ => Err(GenerationError::InvalidExpression(
                 format!("unknown function: {}", name.as_str())
@@ -181,7 +187,9 @@ impl GenerationContext<'_> {
             let lo = self.evaluate(&lower)?;
             let hi = self.evaluate(&upper)?;
             if lo > hi {
-                Ok((hi, lo))
+                // Do NOT silently swap — this indicates an unsatisfiable constraint
+                // or a construction error. Propagate as error.
+                Err(GenerationError::RangeEmpty { min: lo, max: hi })
             } else {
                 Ok((lo, hi))
             }
@@ -214,26 +222,57 @@ fn generate_repeat(&mut self, node_id: NodeId, count_ref: &Reference, body: &[No
     let count_usize = usize::try_from(count)
         .map_err(|_| GenerationError::InvalidExpression("negative repeat count".into()))?;
 
+    // Guard against absurdly large repeat counts
+    if count_usize > self.config.max_repeat_count {
+        return Err(GenerationError::InvalidStructure(format!(
+            "repeat count {count_usize} exceeds limit {}",
+            self.config.max_repeat_count
+        )));
+    }
+
     let mut instances = Vec::with_capacity(count_usize);
 
     for _i in 0..count_usize {
-        let mut iteration_values = HashMap::new();
+        // Generate body children into self.values so they can reference
+        // each other within the same iteration (e.g., Y depends on X).
         for &child_id in body {
             if let Some(node) = self.engine.structure.get(child_id) {
                 let kind = node.kind().clone();
                 self.generate_node_inner(child_id, &kind)?;
-                // Move the generated value to the iteration map
-                if let Some(val) = self.values.remove(&child_id) {
-                    iteration_values.insert(child_id, val);
-                }
+            }
+        }
+
+        // Snapshot: copy body child values into iteration map
+        let mut iteration_values = HashMap::new();
+        for &child_id in body {
+            if let Some(val) = self.values.get(&child_id) {
+                iteration_values.insert(child_id, val.clone());
             }
         }
         instances.push(iteration_values);
+
+        // Remove body child values from self.values to prepare for next iteration.
+        // This ensures the next iteration generates fresh values, not reusing old ones.
+        for &child_id in body {
+            self.values.remove(&child_id);
+        }
     }
 
     self.repeat_instances.insert(node_id, instances);
     Ok(())
 }
+```
+
+**Key design: local scope pattern for Repeat iterations.**
+
+Within a single iteration, body children are generated into `self.values` so that
+later children can reference earlier children (e.g., `1 ≤ Y ≤ X` where both X and
+Y are in the same Repeat body). After all children are generated, values are
+snapshot-copied into the iteration map. Then child values are removed from
+`self.values` to prepare for the next iteration.
+
+This means `evaluate()` naturally resolves intra-iteration references through the
+normal `self.values` lookup path — no separate local scope map is needed.
 ```
 
 ### 5.2 Dependency graph adjustment
@@ -244,10 +283,10 @@ However, body children of a Repeat **must not** be generated during the main top
 
 ```rust
 // In the main generate() loop:
-let repeat_body_children: HashSet<NodeId> = collect_repeat_body_children(engine);
+let skip_set: HashSet<NodeId> = build_skip_set(engine);
 for node_id in &order {
-    if repeat_body_children.contains(node_id) {
-        continue; // Generated inside generate_repeat()
+    if skip_set.contains(node_id) {
+        continue; // Generated inside generate_repeat() or generate_choice()
     }
     // ... normal generation
 }
@@ -300,9 +339,19 @@ fn generate_choice(
 
 Choice node children (non-selected variants) are **not** generated. Like Repeat body children, Choice variant children must be skipped in the main topological walk.
 
+**Tag ownership rule:** The Choice node **owns** its tag. The tag node is included in the skip set and is NOT generated as a normal Scalar during the main topological walk. Only `generate_choice()` writes the tag value.
+
 ```rust
-let choice_variant_children: HashSet<NodeId> = collect_choice_variant_children(engine);
-// Merge with repeat_body_children into a single skip_set
+let skip_set: HashSet<NodeId> = {
+    let mut s = HashSet::new();
+    // Repeat body children
+    s.extend(collect_repeat_body_children(engine));
+    // Choice variant children
+    s.extend(collect_choice_variant_children(engine));
+    // Choice tag nodes (owned by their Choice node)
+    s.extend(collect_choice_tag_nodes(engine));
+    s
+};
 ```
 
 ## 7. Error Handling
@@ -367,9 +416,27 @@ where
 }
 ```
 
-Retryable errors: `RangeEmpty` (if bounds resolve differently based on other stochastic values — unlikely but possible), distinct generation failure.
+Retryable errors: distinct generation failure, graph edge generation failure (stochastic — new random values may succeed).
 
-Non-retryable errors: `CycleDetected`, `UnresolvedReference`, `TypeMismatch`, `InvalidStructure`, `InvalidExpression`.
+Non-retryable errors: all `GenerationError` variants (structural / deterministic). See §7.3 for the full classification table.
+
+### 7.3 Retryable error classification
+
+| Error variant | Retryable? | Reason |
+|---|---|---|
+| `CycleDetected` | No | Structural — cannot change with retry |
+| `UnresolvedReference` | No | Missing dependency — deterministic |
+| `TypeMismatch` | No | Wrong type — deterministic |
+| `RangeEmpty` | No | Constraint is unsatisfiable — retry won't help |
+| `RetryExhausted` | No | Already exhausted retries |
+| `InvalidExpression` | No | Expression evaluation failure — deterministic |
+| `InvalidStructure` | No | AST structural issue — deterministic |
+
+**Note:** In Phase A, the `with_retry` wrapper is used exclusively for **distinct array generation** and **graph edge generation**, where the stochastic nature of rejection sampling can cause transient failures. The retry mechanism re-runs the closure with the same `GenerationContext` (RNG state has advanced), giving a fresh random sample.
+
+If the closure returns any error variant, it is checked:
+- If the error is from the distinct/graph generation logic itself (not one of the above enum variants, but rather a "not enough values generated" condition), retry continues.
+- If the error is any of the above `GenerationError` variants, it is propagated immediately without retry.
 
 ## 8. Public API Changes
 
@@ -531,9 +598,15 @@ Signature changes from `sample_to_text(engine, &sample)` to the same — but `Ge
 - All existing `sample_basic` tests pass (with `.unwrap()` added)
 - Deterministic generation with same seed still produces same output
 
+### Additional tests (from feedback)
+- Same seed + same AST + same config → identical output (strengthened determinism test)
+- Different seeds → Choice variant selection varies (statistical coverage)
+- Repeat count exceeding `max_repeat_count` → `GenerationError::InvalidStructure`
+- Body child inter-reference within Repeat iteration (e.g., `1 ≤ Y ≤ X` where both are body children)
+
 ---
 
-## 13. Non-Goals (Phase B/C)
+## 13. Non-Goals and Limitations (Phase B/C)
 
 These are explicitly **out of scope** for Phase A:
 
@@ -544,3 +617,11 @@ These are explicitly **out of scope** for Phase A:
 - Backtracking / constraint propagation
 - Edge case generation (min/max scenarios)
 - Multi-test-case support
+
+### Phase A Limitations (documented for future phases)
+
+1. **`IndexedRef` is unsupported in expression evaluation.** Indexed references (e.g., `A[i]`) depend on loop variables or quantified indices, which have no concrete value at generation time. Phase A returns `InvalidExpression` for these.
+
+2. **Nested Repeat / nested Choice is not fully general.** The `repeat_instances: HashMap<NodeId, Vec<HashMap<NodeId, SampleValue>>>` structure is flat — it does not support Repeat-inside-Repeat or Choice-inside-Repeat with their own iteration state. Phase A handles top-level and simple nesting (Tuple inside Repeat, Scalar inside Repeat). Deeply nested structured output is a Phase B redesign candidate.
+
+3. **`sample_to_text()` value source abstraction.** Currently, `emit_node()` switches between `sample.values` and `sample.repeat_instances` with special-case logic. A future refactor could introduce a unified value view abstraction that `emit_node()` queries, making it extensible for new node types without adding more special cases.
