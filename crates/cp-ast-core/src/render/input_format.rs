@@ -1,10 +1,9 @@
 use std::fmt::Write;
 
-use crate::constraint::Expression;
 use crate::operation::AstEngine;
 use crate::structure::{NodeId, NodeKind};
 
-use super::render_reference;
+use super::{render_expression, render_reference};
 
 /// Render the input format for competitive programming problems.
 ///
@@ -30,10 +29,7 @@ fn render_node(engine: &AstEngine, node_id: NodeId, output: &mut String) {
             output.push('\n');
         }
         NodeKind::Array { name, length } => {
-            let length_str = match length {
-                Expression::Var(r) => render_reference(engine, r),
-                _ => format!("{length:?}"),
-            };
+            let length_str = render_expression(engine, length);
             writeln!(
                 output,
                 "{}_1 {}_2 … {}_{}",
@@ -116,8 +112,41 @@ fn render_node(engine: &AstEngine, node_id: NodeId, output: &mut String) {
         NodeKind::Hole { .. } => {
             output.push_str("[ ]\n");
         }
-        NodeKind::Choice { .. } => {
-            output.push_str("(choice)\n");
+        NodeKind::Choice { tag, variants } => {
+            render_choice(engine, tag, variants, output);
         }
+    }
+}
+
+fn render_choice(
+    engine: &AstEngine,
+    tag: &crate::structure::Reference,
+    variants: &[(crate::structure::Literal, Vec<NodeId>)],
+    output: &mut String,
+) {
+    let tag_str = render_reference(engine, tag);
+    for (literal, children) in variants {
+        let lit_str = match literal {
+            crate::structure::Literal::IntLit(v) => v.to_string(),
+            crate::structure::Literal::StrLit(s) => format!("\"{s}\""),
+        };
+        let mut child_names = Vec::new();
+        for &child_id in children {
+            if let Some(child_node) = engine.structure.get(child_id) {
+                if let NodeKind::Scalar { name } = child_node.kind() {
+                    child_names.push(name.as_str().to_string());
+                } else {
+                    child_names.push("<?>".to_string());
+                }
+            }
+        }
+        writeln!(
+            output,
+            "If {} = {}: {}",
+            tag_str,
+            lit_str,
+            child_names.join(" ")
+        )
+        .unwrap();
     }
 }

@@ -138,3 +138,80 @@ fn render_constraints_sorted_by_type() {
         "TypeDecl should come before Guarantee"
     );
 }
+
+#[test]
+fn render_expression_count_repeat() {
+    use cp_ast_core::constraint::ArithOp;
+
+    let mut engine = AstEngine::default();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let u_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("u"),
+    });
+    let v_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("v"),
+    });
+    let tuple_id = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![u_id, v_id],
+    });
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Expression::BinOp {
+            op: ArithOp::Sub,
+            lhs: Box::new(Expression::Var(Reference::VariableRef(n_id))),
+            rhs: Box::new(Expression::Lit(1)),
+        },
+        index_var: None,
+        body: vec![tuple_id],
+    });
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![n_id, repeat_id],
+        });
+
+    let text = render_input(&engine);
+    assert!(text.contains("u_i v_i"), "got: {text}");
+}
+
+#[test]
+fn render_choice_plain_text() {
+    use cp_ast_core::structure::Literal;
+
+    let mut engine = AstEngine::default();
+    let t_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("T"),
+    });
+    let x_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("X"),
+    });
+    let y_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("Y"),
+    });
+    let z_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("Z"),
+    });
+    let choice_id = engine.structure.add_node(NodeKind::Choice {
+        tag: Reference::VariableRef(t_id),
+        variants: vec![
+            (Literal::IntLit(1), vec![x_id]),
+            (Literal::IntLit(2), vec![y_id, z_id]),
+        ],
+    });
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![choice_id],
+        });
+
+    let text = render_input(&engine);
+    assert!(text.contains("If T = 1: X"), "got: {text}");
+    assert!(text.contains("If T = 2: Y Z"), "got: {text}");
+}
