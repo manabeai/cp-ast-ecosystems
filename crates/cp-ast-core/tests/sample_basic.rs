@@ -669,7 +669,10 @@ fn generate_repeat_zero_count() {
 
     let sample = generate(&engine, 42).unwrap();
     let instances = sample.repeat_instances.get(&repeat_id).unwrap();
-    assert!(instances.is_empty(), "Repeat with count=0 should have 0 iterations");
+    assert!(
+        instances.is_empty(),
+        "Repeat with count=0 should have 0 iterations"
+    );
 }
 
 #[test]
@@ -723,12 +726,13 @@ fn sample_to_text_with_repeat() {
     let n_id = engine.structure.add_node(NodeKind::Scalar {
         name: Ident::new("N"),
     });
-    let x_id = engine.structure.add_node(NodeKind::Scalar {
-        name: Ident::new("X"),
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Reference::VariableRef(n_id),
     });
     let repeat_id = engine.structure.add_node(NodeKind::Repeat {
         count: Reference::VariableRef(n_id),
-        body: vec![x_id],
+        body: vec![a_id],
     });
     let header = engine.structure.add_node(NodeKind::Tuple {
         elements: vec![n_id],
@@ -749,9 +753,9 @@ fn sample_to_text_with_repeat() {
         },
     );
     engine.constraints.add(
-        Some(x_id),
+        Some(a_id),
         Constraint::Range {
-            target: Reference::VariableRef(x_id),
+            target: Reference::VariableRef(a_id),
             lower: Expression::Lit(1),
             upper: Expression::Lit(100),
         },
@@ -763,16 +767,28 @@ fn sample_to_text_with_repeat() {
 
     // Line 0: N=3
     assert_eq!(lines[0].trim(), "3", "First line should be N=3");
-    // Lines 1-3: one X value per line
-    assert_eq!(lines.len(), 4, "Should have 4 lines: N + 3 repeat iterations");
+    // Lines 1-3: one array per line (each array has 3 elements)
+    assert_eq!(
+        lines.len(),
+        4,
+        "Should have 4 lines: N + 3 repeat iterations"
+    );
     for (i, line) in lines[1..].iter().enumerate() {
-        let v: i64 = line.trim().parse().unwrap_or_else(|_| {
-            panic!("Line {} should be a parseable integer, got: {line:?}", i + 1)
-        });
-        assert!(
-            (1..=100).contains(&v),
-            "Repeat iteration {i}: value {v} not in [1, 100]"
+        let elements: Vec<&str> = line.split_whitespace().collect();
+        assert_eq!(
+            elements.len(),
+            3,
+            "Iteration {i}: array should have 3 elements"
         );
+        for (j, elem) in elements.iter().enumerate() {
+            let v: i64 = elem.parse().unwrap_or_else(|_| {
+                panic!("Iteration {i}, element {j}: should be integer, got: {elem:?}")
+            });
+            assert!(
+                (1..=100).contains(&v),
+                "Iteration {i}, element {j}: value {v} not in [1, 100]"
+            );
+        }
     }
 }
 
@@ -901,7 +917,11 @@ fn generate_scalar_with_binop_variable_bound() {
             .repeat_instances
             .get(&repeat_id)
             .expect("should have repeat instances");
-        assert_eq!(instances.len(), 1, "Repeat with count=1 should have 1 iteration");
+        assert_eq!(
+            instances.len(),
+            1,
+            "Repeat with count=1 should have 1 iteration"
+        );
         let m_val = match instances[0].get(&m_id) {
             Some(SampleValue::Int(v)) => *v,
             _ => panic!("M should be Int"),
@@ -1041,11 +1061,23 @@ fn generate_choice_branching() {
     );
 
     if tag_val == 1 {
-        assert!(sample.values.contains_key(&x_id), "Variant 1: X should exist");
-        assert!(!sample.values.contains_key(&y_id), "Variant 1: Y should NOT exist");
+        assert!(
+            sample.values.contains_key(&x_id),
+            "Variant 1: X should exist"
+        );
+        assert!(
+            !sample.values.contains_key(&y_id),
+            "Variant 1: Y should NOT exist"
+        );
     } else {
-        assert!(!sample.values.contains_key(&x_id), "Variant 2: X should NOT exist");
-        assert!(sample.values.contains_key(&y_id), "Variant 2: Y should exist");
+        assert!(
+            !sample.values.contains_key(&x_id),
+            "Variant 2: X should NOT exist"
+        );
+        assert!(
+            sample.values.contains_key(&y_id),
+            "Variant 2: Y should exist"
+        );
     }
 }
 
