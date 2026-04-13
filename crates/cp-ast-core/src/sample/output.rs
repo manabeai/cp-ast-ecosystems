@@ -176,6 +176,38 @@ fn emit_node_with_values(
                 emit_node_with_values(engine, child_id, values, sample, output);
             }
         }
+        NodeKind::Section { header, body } => {
+            let header = *header;
+            let body = body.clone();
+            if let Some(h) = header {
+                emit_node_with_values(engine, h, values, sample, output);
+            }
+            for &child_id in &body {
+                emit_node_with_values(engine, child_id, values, sample, output);
+            }
+        }
+        NodeKind::Choice { tag, variants } => {
+            let tag = tag.clone();
+            let variants = variants.clone();
+            if let Reference::VariableRef(tag_id) = &tag {
+                if let Some(tag_val) = values.get(tag_id) {
+                    for (lit, children) in &variants {
+                        if literal_matches_value(lit, tag_val) {
+                            for &child_id in children {
+                                emit_node_with_values(engine, child_id, values, sample, output);
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
+            // Fallback: emit first variant
+            if let Some((_, children)) = variants.first() {
+                for &child_id in children {
+                    emit_node_with_values(engine, child_id, values, sample, output);
+                }
+            }
+        }
         _ => {
             // For other node types in repeat body, fall back to sample.values
             emit_node(engine, node_id, sample, output);

@@ -590,6 +590,9 @@ impl<'a> GenerationContext<'a> {
                     .insert(var_name.clone(), i64::try_from(i).unwrap_or(0));
             }
 
+            // Record which values exist before this iteration
+            let pre_keys: HashSet<NodeId> = self.values.keys().copied().collect();
+
             // Generate body children into self.values so they can reference
             // each other within the same iteration (e.g., Y depends on X).
             for &child_id in body {
@@ -599,18 +602,26 @@ impl<'a> GenerationContext<'a> {
                 }
             }
 
-            // Snapshot: copy body child values into iteration map
+            // Snapshot: collect ALL new values produced during this iteration
+            // (handles composite body nodes like Choice and Tuple whose children
+            // store values at their own NodeIds)
             let mut iteration_values = HashMap::new();
-            for &child_id in body {
-                if let Some(val) = self.values.get(&child_id) {
-                    iteration_values.insert(child_id, val.clone());
+            let new_keys: Vec<NodeId> = self
+                .values
+                .keys()
+                .copied()
+                .filter(|k| !pre_keys.contains(k))
+                .collect();
+            for id in &new_keys {
+                if let Some(val) = self.values.get(id) {
+                    iteration_values.insert(*id, val.clone());
                 }
             }
             instances.push(iteration_values);
 
-            // Remove body child values to prepare for next iteration
-            for &child_id in body {
-                self.values.remove(&child_id);
+            // Remove all new values to prepare for next iteration
+            for id in &new_keys {
+                self.values.remove(id);
             }
         }
 

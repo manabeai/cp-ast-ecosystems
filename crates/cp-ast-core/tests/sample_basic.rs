@@ -1527,3 +1527,136 @@ fn repeat_with_loop_variable_decreasing() {
         }
     }
 }
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn choice_in_repeat_generates_independently() {
+    // Query pattern: Q queries, each with tag T choosing variant
+    let mut engine = AstEngine::default();
+
+    // Q = 10
+    let q_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("Q"),
+    });
+    engine.constraints.add(
+        Some(q_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(q_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(q_id),
+        Constraint::Range {
+            target: Reference::VariableRef(q_id),
+            lower: Expression::Lit(10),
+            upper: Expression::Lit(10),
+        },
+    );
+
+    // Tag T (set by Choice)
+    let t_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("T"),
+    });
+
+    // Variant 1: single X scalar
+    let x_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("X"),
+    });
+    engine.constraints.add(
+        Some(x_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(x_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(x_id),
+        Constraint::Range {
+            target: Reference::VariableRef(x_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    // Variant 2: two scalars Y, Z
+    let y_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("Y"),
+    });
+    engine.constraints.add(
+        Some(y_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(y_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(y_id),
+        Constraint::Range {
+            target: Reference::VariableRef(y_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    let z_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("Z"),
+    });
+    engine.constraints.add(
+        Some(z_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(z_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(z_id),
+        Constraint::Range {
+            target: Reference::VariableRef(z_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    let choice_id = engine.structure.add_node(NodeKind::Choice {
+        tag: Reference::VariableRef(t_id),
+        variants: vec![
+            (Literal::IntLit(1), vec![x_id]),
+            (Literal::IntLit(2), vec![y_id, z_id]),
+        ],
+    });
+
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Expression::Var(Reference::VariableRef(q_id)),
+        index_var: None,
+        body: vec![choice_id],
+    });
+
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![q_id, repeat_id],
+        });
+
+    let sample = generate(&engine, 42).unwrap();
+    let instances = &sample.repeat_instances[&repeat_id];
+    assert_eq!(instances.len(), 10);
+
+    // Check that at least one variant 1 and one variant 2 were chosen
+    let mut saw_variant1 = false;
+    let mut saw_variant2 = false;
+    for iteration in instances {
+        if let Some(SampleValue::Int(tag)) = iteration.get(&t_id) {
+            match tag {
+                1 => saw_variant1 = true,
+                2 => saw_variant2 = true,
+                _ => panic!("unexpected tag value: {tag}"),
+            }
+        }
+    }
+    assert!(saw_variant1, "should see at least one variant 1");
+    assert!(saw_variant2, "should see at least one variant 2");
+}
