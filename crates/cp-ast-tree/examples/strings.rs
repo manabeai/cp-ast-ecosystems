@@ -9,7 +9,12 @@
 //! ```
 //!
 //! 使用 `NodeKind`: `Scalar`, `Repeat`, `Sequence`
-//! 使用 `Constraint`: `Range`, `TypeDecl`, `CharSet`, `StringLength`
+//!
+//! 制約:
+//! - 1 ≤ N ≤ 10^5
+//! - N は整数
+//! - `S_i` は英小文字からなる文字列
+//! - 1 ≤ |`S_i`| ≤ 10^5
 
 use cp_ast_core::constraint::{CharSetSpec, Constraint, ExpectedType, Expression};
 use cp_ast_core::operation::AstEngine;

@@ -14,7 +14,14 @@
 //! ```
 //!
 //! 使用 `NodeKind`: `Scalar`, `Tuple`, `Choice`, `Repeat`, `Sequence`
-//! 使用 `Constraint`: `Range`, `TypeDecl`
+//!
+//! 制約:
+//! - 1 ≤ N ≤ 10^5
+//! - 1 ≤ Q ≤ 10^5
+//! - 1 ≤ `t_i` ≤ 3
+//! - 1 ≤ `x_i` ≤ 10^9 (クエリ種別 1 のとき)
+//! - 1 ≤ `k_i` ≤ N (クエリ種別 2 のとき)
+//! - N, Q, `t_i`, `x_i`, `k_i` は整数
 
 use cp_ast_core::constraint::{Constraint, ExpectedType, Expression};
 use cp_ast_core::operation::AstEngine;

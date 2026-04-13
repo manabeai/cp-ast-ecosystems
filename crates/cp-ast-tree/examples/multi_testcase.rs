@@ -9,7 +9,13 @@
 //! ```
 //!
 //! 使用 `NodeKind`: `Scalar`, `Array`, `Section`, `Repeat`, `Sequence`
-//! 使用 `Constraint`: `Range`, `TypeDecl`, `Guarantee`
+//!
+//! 制約:
+//! - 1 ≤ T ≤ 100
+//! - 1 ≤ N ≤ 10^5
+//! - 0 ≤ `A_i` ≤ 10^9
+//! - T, N, `A_i` は整数
+//! - 全テストケースの N の和 ≤ 2 × 10^5
 
 use cp_ast_core::constraint::{Constraint, ExpectedType, Expression};
 use cp_ast_core::operation::AstEngine;

@@ -9,7 +9,12 @@
 //! ```
 //!
 //! 使用 `NodeKind`: `Scalar`, `Matrix`, `Tuple`, `Sequence`
-//! 使用 `Constraint`: `Range`, `TypeDecl`, `Guarantee`
+//!
+//! 制約:
+//! - 1 ≤ H, W ≤ 1000
+//! - 0 ≤ A_{i,j} ≤ 9
+//! - H, W, A_{i,j} は整数
+//! - H × W ≤ 10^6
 
 use cp_ast_core::constraint::{Constraint, ExpectedType, Expression};
 use cp_ast_core::operation::AstEngine;

@@ -7,7 +7,11 @@
 //! ```
 //!
 //! 使用 `NodeKind`: `Scalar`, `Array`, `Sequence`
-//! 使用 `Constraint`: `Range`, `TypeDecl`
+//!
+//! 制約:
+//! - 1 ≤ N ≤ 10^5
+//! - 1 ≤ `A_i` ≤ 10^9
+//! - N, `A_i` は整数
 
 use cp_ast_core::constraint::{Constraint, ExpectedType, Expression};
 use cp_ast_core::operation::AstEngine;

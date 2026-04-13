@@ -9,7 +9,13 @@
 //! ```
 //!
 //! 使用 `NodeKind`: `Scalar`, `Tuple`, `Repeat`, `Sequence`
-//! 使用 `Constraint`: `Range`, `TypeDecl`, `Guarantee`
+//!
+//! 制約:
+//! - 1 ≤ N ≤ 10^5
+//! - 1 ≤ M ≤ N
+//! - 1 ≤ `u_i`, `v_i` ≤ N
+//! - N, M, `u_i`, `v_i` は整数
+//! - グラフは単純連結
 
 use cp_ast_core::constraint::{Constraint, ExpectedType, Expression};
 use cp_ast_core::operation::AstEngine;
