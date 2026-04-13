@@ -20,6 +20,8 @@
 ## Project Structure
 - `crates/cp-ast-core/` — Core AST types (StructureAST + ConstraintAST)
 - `doc/` — Design documents and references
+- `doc/plan/main.md` — Project architecture overview (full vision)
+- `doc/plan/processing.md` — Implementation progress and roadmap
 - `docs/superpowers/` — Specs and plans
 
 ## Git
