@@ -1,7 +1,7 @@
-use cp_ast_core::constraint::Expression;
+use cp_ast_core::constraint::{Constraint, ExpectedType, Expression};
 use cp_ast_core::operation::AstEngine;
 use cp_ast_core::structure::{Ident, Literal, NodeKind, Reference};
-use cp_ast_tree::{render_structure_tree, TreeOptions};
+use cp_ast_tree::{render_constraint_tree, render_structure_tree, TreeOptions};
 
 fn setup_graph_engine() -> AstEngine {
     let mut engine = AstEngine::new();
@@ -87,6 +87,74 @@ fn structure_tree_single_scalar() {
     }
     let output = render_structure_tree(&engine, &TreeOptions::default());
     assert_eq!(output, "Sequence\n└── Scalar(N)\n");
+}
+
+#[test]
+fn constraint_tree_basic() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id],
+        });
+    }
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Pow {
+                base: Box::new(Expression::Lit(10)),
+                exp: Box::new(Expression::Lit(5)),
+            },
+        },
+    );
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(n_id),
+            expected: ExpectedType::Int,
+        },
+    );
+
+    let output = render_constraint_tree(&engine, &TreeOptions::default());
+    assert!(output.contains("Constraints"));
+    assert!(output.contains('N'));
+    assert!(output.contains("1 ≤ N ≤ 10^5"));
+    assert!(output.contains("N is integer"));
+}
+
+#[test]
+fn constraint_tree_with_global() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id],
+        });
+    }
+    engine.constraints.add(
+        None,
+        Constraint::Guarantee {
+            description: "The answer exists".to_owned(),
+            predicate: None,
+        },
+    );
+
+    let output = render_constraint_tree(&engine, &TreeOptions::default());
+    assert!(output.contains("(global)"));
+    assert!(output.contains("The answer exists"));
+}
+
+#[test]
+fn constraint_tree_empty() {
+    let engine = AstEngine::new();
+    let output = render_constraint_tree(&engine, &TreeOptions::default());
+    assert_eq!(output, "Constraints\n");
 }
 
 #[test]
