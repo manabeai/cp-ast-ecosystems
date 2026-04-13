@@ -2,7 +2,7 @@ use super::engine::AstEngine;
 use super::error::OperationError;
 use super::result::ApplyResult;
 use super::types::{FillContent, LengthSpec, VarType};
-use crate::constraint::{Constraint, ExpectedType};
+use crate::constraint::{Constraint, ExpectedType, Expression};
 use crate::structure::{Ident, NodeId, NodeKind, Reference};
 
 impl AstEngine {
@@ -69,10 +69,10 @@ impl AstEngine {
                 name: Ident::new(name),
             },
             FillContent::Array { name, length, .. } => {
-                let length_ref = length_spec_to_reference(length);
+                let length_expr = length_spec_to_expression(length);
                 NodeKind::Array {
                     name: Ident::new(name),
-                    length: length_ref,
+                    length: length_expr,
                 }
             }
             FillContent::Grid {
@@ -127,5 +127,13 @@ fn length_spec_to_reference(spec: &LengthSpec) -> Reference {
         LengthSpec::Fixed(n) => Reference::Unresolved(Ident::new(&format!("{n}"))),
         LengthSpec::RefVar(id) => Reference::VariableRef(*id),
         LengthSpec::Expr(s) => Reference::Unresolved(Ident::new(s)),
+    }
+}
+
+fn length_spec_to_expression(spec: &LengthSpec) -> Expression {
+    match spec {
+        LengthSpec::Fixed(n) => Expression::Var(Reference::Unresolved(Ident::new(&format!("{n}")))),
+        LengthSpec::RefVar(id) => Expression::Var(Reference::VariableRef(*id)),
+        LengthSpec::Expr(s) => Expression::Var(Reference::Unresolved(Ident::new(s))),
     }
 }

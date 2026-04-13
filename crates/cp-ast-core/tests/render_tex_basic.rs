@@ -1,4 +1,6 @@
-use cp_ast_core::constraint::{ArithOp, Constraint, DistinctUnit, Expression, SortOrder};
+use cp_ast_core::constraint::{
+    ArithOp, Constraint, DistinctUnit, Expression, SortOrder,
+};
 use cp_ast_core::operation::AstEngine;
 use cp_ast_core::render_tex::{
     render_constraints_tex, render_full_tex, render_input_tex, SectionMode, TexOptions,
@@ -251,7 +253,7 @@ fn constraint_tex_array_element_with_index_range() {
     });
     let a_id = engine.structure.add_node(NodeKind::Array {
         name: Ident::new("A"),
-        length: Reference::VariableRef(n_id),
+        length: Expression::Var(Reference::VariableRef(n_id)),
     });
     if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
         root.set_kind(NodeKind::Sequence {
@@ -341,7 +343,7 @@ fn constraint_tex_distinct() {
     });
     let a_id = engine.structure.add_node(NodeKind::Array {
         name: Ident::new("A"),
-        length: Reference::VariableRef(n_id),
+        length: Expression::Var(Reference::VariableRef(n_id)),
     });
     if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
         root.set_kind(NodeKind::Sequence {
@@ -371,7 +373,7 @@ fn constraint_tex_sorted() {
     });
     let a_id = engine.structure.add_node(NodeKind::Array {
         name: Ident::new("A"),
-        length: Reference::VariableRef(n_id),
+        length: Expression::Var(Reference::VariableRef(n_id)),
     });
     if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
         root.set_kind(NodeKind::Sequence {
@@ -528,7 +530,7 @@ fn input_tex_array() {
     });
     let a_id = engine.structure.add_node(NodeKind::Array {
         name: Ident::new("A"),
-        length: Reference::VariableRef(n_id),
+        length: Expression::Var(Reference::VariableRef(n_id)),
     });
     if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
         root.set_kind(NodeKind::Sequence {
@@ -553,7 +555,8 @@ fn input_tex_repeat_scalar() {
         name: Ident::new("T"),
     });
     let repeat_id = engine.structure.add_node(NodeKind::Repeat {
-        count: Reference::VariableRef(q_id),
+        count: Expression::Var(Reference::VariableRef(q_id)),
+        index_var: None,
         body: vec![t_id],
     });
     if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
@@ -585,7 +588,8 @@ fn input_tex_repeat_tuple() {
         elements: vec![u_id, v_id],
     });
     let repeat_id = engine.structure.add_node(NodeKind::Repeat {
-        count: Reference::VariableRef(m_id),
+        count: Expression::Var(Reference::VariableRef(m_id)),
+        index_var: None,
         body: vec![tuple_id],
     });
     if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
@@ -636,13 +640,14 @@ fn input_tex_combined_n_array_repeat() {
     });
     let a_id = engine.structure.add_node(NodeKind::Array {
         name: Ident::new("D"),
-        length: Reference::VariableRef(n_id),
+        length: Expression::Var(Reference::VariableRef(n_id)),
     });
     let t_id = engine.structure.add_node(NodeKind::Scalar {
         name: Ident::new("T"),
     });
     let repeat_id = engine.structure.add_node(NodeKind::Repeat {
-        count: Reference::VariableRef(q_id),
+        count: Expression::Var(Reference::VariableRef(q_id)),
+        index_var: None,
         body: vec![t_id],
     });
     if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
@@ -751,7 +756,8 @@ fn e2e_graph_problem_tex() {
         elements: vec![u_id, v_id],
     });
     let edges = engine.structure.add_node(NodeKind::Repeat {
-        count: Reference::VariableRef(m_id),
+        count: Expression::Var(Reference::VariableRef(m_id)),
+        index_var: None,
         body: vec![edge_tuple],
     });
 

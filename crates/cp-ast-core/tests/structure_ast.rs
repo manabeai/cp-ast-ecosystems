@@ -1,3 +1,4 @@
+use cp_ast_core::constraint::Expression;
 use cp_ast_core::structure::{
     Ident, Literal, NodeId, NodeKind, NodeKindHint, Reference, StructureAst, StructureNode,
 };
@@ -16,7 +17,7 @@ fn node_kind_scalar() {
 fn node_kind_array() {
     let kind = NodeKind::Array {
         name: Ident::new("A"),
-        length: Reference::Unresolved(Ident::new("N")),
+        length: Expression::Var(Reference::Unresolved(Ident::new("N"))),
     };
     assert!(matches!(kind, NodeKind::Array { .. }));
 }
@@ -42,7 +43,8 @@ fn node_kind_tuple() {
 #[test]
 fn node_kind_repeat() {
     let kind = NodeKind::Repeat {
-        count: Reference::Unresolved(Ident::new("M")),
+        count: Expression::Var(Reference::Unresolved(Ident::new("M"))),
+        index_var: None,
         body: vec![NodeId::from_raw(5)],
     };
     assert!(matches!(kind, NodeKind::Repeat { .. }));

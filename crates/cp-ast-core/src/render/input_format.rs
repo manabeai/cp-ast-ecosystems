@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use crate::constraint::Expression;
 use crate::operation::AstEngine;
 use crate::structure::{NodeId, NodeKind};
 
@@ -29,7 +30,10 @@ fn render_node(engine: &AstEngine, node_id: NodeId, output: &mut String) {
             output.push('\n');
         }
         NodeKind::Array { name, length } => {
-            let length_str = render_reference(engine, length);
+            let length_str = match length {
+                Expression::Var(r) => render_reference(engine, r),
+                _ => format!("{length:?}"),
+            };
             writeln!(
                 output,
                 "{}_1 {}_2 … {}_{}",
@@ -66,7 +70,7 @@ fn render_node(engine: &AstEngine, node_id: NodeId, output: &mut String) {
             }
             output.push('\n');
         }
-        NodeKind::Repeat { count: _, body } => {
+        NodeKind::Repeat { body, .. } => {
             // Check if body contains a single Tuple - if so, use indexed form
             if body.len() == 1 {
                 if let Some(body_node) = engine.structure.get(body[0]) {

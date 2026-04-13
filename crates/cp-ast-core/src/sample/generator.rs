@@ -265,6 +265,16 @@ impl<'a> GenerationContext<'a> {
         }
     }
 
+    fn resolve_expression_as_int_shim(&self, expr: &Expression) -> Result<i64, GenerationError> {
+        match expr {
+            Expression::Var(reference) => self.resolve_reference_as_int(reference),
+            Expression::Lit(v) => Ok(*v),
+            _ => Err(GenerationError::InvalidExpression(
+                "complex expressions not yet supported".into(),
+            )),
+        }
+    }
+
     fn resolve_string_length(
         &mut self,
         constraints: &[&Constraint],
@@ -322,10 +332,15 @@ impl<'a> GenerationContext<'a> {
                 let cols = cols.clone();
                 self.generate_matrix(node_id, &rows, &cols)
             }
-            NodeKind::Repeat { count, body } => {
+            NodeKind::Repeat {
+                count,
+                index_var,
+                body,
+            } => {
                 let count = count.clone();
+                let index_var = index_var.as_ref();
                 let body = body.clone();
-                self.generate_repeat(node_id, &count, &body)
+                self.generate_repeat(node_id, &count, index_var, &body)
             }
             NodeKind::Choice { tag, variants } => {
                 let tag = tag.clone();
@@ -376,9 +391,9 @@ impl<'a> GenerationContext<'a> {
     fn generate_array(
         &mut self,
         node_id: NodeId,
-        length_ref: &Reference,
+        length_expr: &Expression,
     ) -> Result<(), GenerationError> {
-        let len = self.resolve_reference_as_int(length_ref)?;
+        let len = self.resolve_expression_as_int_shim(length_expr)?;
         let constraints = get_node_constraints(self.engine, node_id);
         let (lo, hi) = self.resolve_range(&constraints)?;
 
@@ -502,10 +517,11 @@ impl<'a> GenerationContext<'a> {
     fn generate_repeat(
         &mut self,
         node_id: NodeId,
-        count_ref: &Reference,
+        count_expr: &Expression,
+        _index_var: Option<&Ident>,
         body: &[NodeId],
     ) -> Result<(), GenerationError> {
-        let count = self.resolve_reference_as_int(count_ref)?;
+        let count = self.resolve_expression_as_int_shim(count_expr)?;
         let count_usize = usize::try_from(count)
             .map_err(|_| GenerationError::InvalidExpression("negative repeat count".into()))?;
 

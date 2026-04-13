@@ -10,6 +10,7 @@
 //!   Input: A B (single line)
 //!   Constraints: 1 ≤ A,B ≤ 100
 
+use cp_ast_core::constraint::Expression;
 use cp_ast_core::operation::{
     Action, AstEngine, ConstraintDef, ConstraintDefKind, FillContent, VarType,
 };
@@ -108,7 +109,8 @@ fn e2e_abc284c_full_pipeline() {
 
     // Repeat M times: edge tuple (manual — no FillContent for Repeat)
     let repeat = engine.structure.add_node(NodeKind::Repeat {
-        count: Reference::VariableRef(m_id),
+        count: Expression::Var(Reference::VariableRef(m_id)),
+        index_var: None,
         body: vec![tuple_edge],
     });
 

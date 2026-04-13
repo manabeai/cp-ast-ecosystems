@@ -31,7 +31,7 @@ fn express_n_plus_array_rev1() {
     // Array A with length referencing N
     let a_id = ast.add_node(NodeKind::Array {
         name: Ident::new("A"),
-        length: Reference::VariableRef(n_id),
+        length: Expression::Var(Reference::VariableRef(n_id)),
     });
 
     // Tuple for header line: (N) — single element on first line

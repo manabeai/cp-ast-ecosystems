@@ -25,7 +25,7 @@ fn render_n_plus_array() {
     });
     let a_id = engine.structure.add_node(NodeKind::Array {
         name: Ident::new("A"),
-        length: Reference::VariableRef(n_id),
+        length: Expression::Var(Reference::VariableRef(n_id)),
     });
     if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
         root.set_kind(NodeKind::Sequence {
@@ -59,7 +59,8 @@ fn render_edge_list() {
     });
 
     let repeat = engine.structure.add_node(NodeKind::Repeat {
-        count: Reference::VariableRef(m_id),
+        count: Expression::Var(Reference::VariableRef(m_id)),
+        index_var: None,
         body: vec![tuple_edge],
     });
 

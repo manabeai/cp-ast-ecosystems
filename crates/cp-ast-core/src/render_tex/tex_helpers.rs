@@ -173,7 +173,7 @@ impl IndexAllocator {
 pub fn resolve_array_info(
     engine: &AstEngine,
     reference: &Reference,
-) -> Option<(String, Reference)> {
+) -> Option<(String, Expression)> {
     if let Reference::VariableRef(node_id) = reference {
         if let Some(node) = engine.structure.get(*node_id) {
             if let NodeKind::Array { name, length } = node.kind() {

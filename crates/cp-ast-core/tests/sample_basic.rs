@@ -14,7 +14,7 @@ fn build_n_plus_array_engine() -> AstEngine {
     });
     let a_id = engine.structure.add_node(NodeKind::Array {
         name: Ident::new("A"),
-        length: Reference::VariableRef(n_id),
+        length: Expression::Var(Reference::VariableRef(n_id)),
     });
     let header = engine.structure.add_node(NodeKind::Tuple {
         elements: vec![n_id],
@@ -124,7 +124,7 @@ fn topo_sort_detects_cycle() {
     // Make a_arr depend on b_id for length
     let a_arr = engine.structure.add_node(NodeKind::Array {
         name: Ident::new("AA"),
-        length: Reference::VariableRef(b_id),
+        length: Expression::Var(Reference::VariableRef(b_id)),
     });
     // Make b_arr depend on a_arr for length (creates a cycle a_arr→b_id, but not directly)
     // Instead, use a Repeat whose count is a_arr, with b_id in its body
@@ -139,7 +139,7 @@ fn topo_sort_detects_cycle() {
     // but a_arr depends on b_id and b_arr depends on a_id.
     let b_arr = engine.structure.add_node(NodeKind::Array {
         name: Ident::new("BB"),
-        length: Reference::VariableRef(a_id),
+        length: Expression::Var(Reference::VariableRef(a_id)),
     });
 
     // Make a_id a child of a container that depends on b_arr
@@ -161,7 +161,8 @@ fn topo_sort_detects_cycle() {
         name: Ident::new("X"),
     });
     let repeat_node = engine.structure.add_node(NodeKind::Repeat {
-        count: Reference::VariableRef(inner_scalar),
+        count: Expression::Var(Reference::VariableRef(inner_scalar)),
+        index_var: None,
         body: vec![inner_scalar],
     });
 
@@ -262,7 +263,7 @@ fn generate_distinct_all_unique() {
     });
     let a_id = engine.structure.add_node(NodeKind::Array {
         name: Ident::new("A"),
-        length: Reference::VariableRef(n_id),
+        length: Expression::Var(Reference::VariableRef(n_id)),
     });
 
     if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
@@ -328,7 +329,7 @@ fn generate_sorted_is_sorted() {
     });
     let a_id = engine.structure.add_node(NodeKind::Array {
         name: Ident::new("A"),
-        length: Reference::VariableRef(n_id),
+        length: Expression::Var(Reference::VariableRef(n_id)),
     });
 
     if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
@@ -507,7 +508,8 @@ fn generate_repeat_expansion() {
         name: Ident::new("X"),
     });
     let repeat_id = engine.structure.add_node(NodeKind::Repeat {
-        count: Reference::VariableRef(n_id),
+        count: Expression::Var(Reference::VariableRef(n_id)),
+        index_var: None,
         body: vec![x_id],
     });
 
@@ -578,7 +580,8 @@ fn generate_repeat_body_child_inter_reference() {
         name: Ident::new("Y"),
     });
     let repeat_id = engine.structure.add_node(NodeKind::Repeat {
-        count: Reference::VariableRef(n_id),
+        count: Expression::Var(Reference::VariableRef(n_id)),
+        index_var: None,
         body: vec![x_id, y_id],
     });
 
@@ -648,7 +651,8 @@ fn generate_repeat_zero_count() {
         name: Ident::new("X"),
     });
     let repeat_id = engine.structure.add_node(NodeKind::Repeat {
-        count: Reference::VariableRef(n_id),
+        count: Expression::Var(Reference::VariableRef(n_id)),
+        index_var: None,
         body: vec![x_id],
     });
 
@@ -687,7 +691,8 @@ fn generate_repeat_count_exceeds_limit() {
         name: Ident::new("X"),
     });
     let repeat_id = engine.structure.add_node(NodeKind::Repeat {
-        count: Reference::VariableRef(n_id),
+        count: Expression::Var(Reference::VariableRef(n_id)),
+        index_var: None,
         body: vec![x_id],
     });
 
@@ -728,10 +733,11 @@ fn sample_to_text_with_repeat() {
     });
     let a_id = engine.structure.add_node(NodeKind::Array {
         name: Ident::new("A"),
-        length: Reference::VariableRef(n_id),
+        length: Expression::Var(Reference::VariableRef(n_id)),
     });
     let repeat_id = engine.structure.add_node(NodeKind::Repeat {
-        count: Reference::VariableRef(n_id),
+        count: Expression::Var(Reference::VariableRef(n_id)),
+        index_var: None,
         body: vec![a_id],
     });
     let header = engine.structure.add_node(NodeKind::Tuple {
@@ -801,7 +807,7 @@ fn generate_array_elements_bounded_by_variable() {
     });
     let a_id = engine.structure.add_node(NodeKind::Array {
         name: Ident::new("A"),
-        length: Reference::VariableRef(n_id),
+        length: Expression::Var(Reference::VariableRef(n_id)),
     });
 
     if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
@@ -866,7 +872,8 @@ fn generate_scalar_with_binop_variable_bound() {
         name: Ident::new("M"),
     });
     let repeat_id = engine.structure.add_node(NodeKind::Repeat {
-        count: Reference::VariableRef(one),
+        count: Expression::Var(Reference::VariableRef(one)),
+        index_var: None,
         body: vec![m_id],
     });
 
@@ -1202,7 +1209,8 @@ fn generate_cycle_returns_error() {
         name: Ident::new("X"),
     });
     let repeat_id = engine.structure.add_node(NodeKind::Repeat {
-        count: Reference::VariableRef(inner),
+        count: Expression::Var(Reference::VariableRef(inner)),
+        index_var: None,
         body: vec![inner],
     });
 

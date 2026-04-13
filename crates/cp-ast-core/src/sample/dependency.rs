@@ -1,7 +1,27 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
+use crate::constraint::Expression;
 use crate::operation::AstEngine;
 use crate::structure::{NodeId, NodeKind, Reference};
+
+/// Extract `NodeId` references from an `Expression`.
+fn extract_var_refs(expr: &Expression) -> Vec<NodeId> {
+    match expr {
+        Expression::Var(Reference::VariableRef(id)) => vec![*id],
+        Expression::Lit(_) | Expression::Var(_) => vec![],
+        Expression::BinOp { lhs, rhs, .. } => {
+            let mut refs = extract_var_refs(lhs);
+            refs.extend(extract_var_refs(rhs));
+            refs
+        }
+        Expression::Pow { base, exp } => {
+            let mut refs = extract_var_refs(base);
+            refs.extend(extract_var_refs(exp));
+            refs
+        }
+        Expression::FnCall { args, .. } => args.iter().flat_map(extract_var_refs).collect(),
+    }
+}
 
 /// Error returned when the dependency graph contains a cycle.
 #[derive(Debug, Clone)]
@@ -56,9 +76,8 @@ impl DependencyGraph {
             let id = node.id();
             match node.kind() {
                 NodeKind::Array { length, .. } => {
-                    if let Reference::VariableRef(ref_id) = length {
-                        // Array depends on its length variable
-                        deps.entry(id).or_default().push(*ref_id);
+                    for ref_id in extract_var_refs(length) {
+                        deps.entry(id).or_default().push(ref_id);
                     }
                 }
                 NodeKind::Matrix { rows, cols, .. } => {
@@ -69,9 +88,9 @@ impl DependencyGraph {
                         deps.entry(id).or_default().push(*ref_id);
                     }
                 }
-                NodeKind::Repeat { count, body } => {
-                    if let Reference::VariableRef(ref_id) = count {
-                        deps.entry(id).or_default().push(*ref_id);
+                NodeKind::Repeat { count, body, .. } => {
+                    for ref_id in extract_var_refs(count) {
+                        deps.entry(id).or_default().push(ref_id);
                     }
                     // Body elements depend on the repeat node
                     for &child in body {

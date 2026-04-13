@@ -85,7 +85,7 @@ fn emit_node(engine: &AstEngine, node_id: NodeId, sample: &GeneratedSample, outp
                 emit_node(engine, child_id, sample, output);
             }
         }
-        NodeKind::Repeat { count: _, body } => {
+        NodeKind::Repeat { body, .. } => {
             let body = body.clone();
             if let Some(instances) = sample.repeat_instances.get(&node_id) {
                 for iteration_values in instances {

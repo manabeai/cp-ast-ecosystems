@@ -1,5 +1,6 @@
 //! Input format TeX rendering.
 
+use crate::constraint::Expression;
 use crate::operation::AstEngine;
 use crate::structure::{NodeId, NodeKind};
 
@@ -80,7 +81,10 @@ fn collect_lines(
         }
         NodeKind::Array { name, length } => {
             let name_str = ident_to_tex(name);
-            let length_str = reference_to_tex(engine, length, warnings);
+            let length_str = match length {
+                Expression::Var(r) => reference_to_tex(engine, r, warnings),
+                _ => format!("{length:?}"),
+            };
             lines.push(format!(
                 "{name_str}_1 \\ {name_str}_2 \\ \\cdots \\ {name_str}_{length_str}"
             ));
@@ -104,8 +108,11 @@ fn collect_lines(
                 "{name_str}_{{{rows_str},1}} \\ {name_str}_{{{rows_str},2}} \\ \\cdots \\ {name_str}_{{{rows_str},{cols_str}}}"
             ));
         }
-        NodeKind::Repeat { count, body } => {
-            let count_str = reference_to_tex(engine, count, warnings);
+        NodeKind::Repeat { count, body, .. } => {
+            let count_str = match count {
+                Expression::Var(r) => reference_to_tex(engine, r, warnings),
+                _ => format!("{count:?}"),
+            };
             render_repeat_lines(engine, &count_str, body, lines, warnings, options);
         }
         NodeKind::Section { body, .. } => {

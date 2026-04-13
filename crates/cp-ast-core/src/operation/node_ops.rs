@@ -124,12 +124,17 @@ impl AstEngine {
                     });
                 }
             }
-            NodeKind::Repeat { count, body } => {
+            NodeKind::Repeat {
+                count,
+                index_var,
+                body,
+            } => {
                 if slot_name == "body" {
                     let mut new_body = body.clone();
                     new_body.push(new_node_id);
                     parent_node.set_kind(NodeKind::Repeat {
                         count: count.clone(),
+                        index_var: index_var.clone(),
                         body: new_body,
                     });
                 } else {
@@ -258,11 +263,16 @@ impl AstEngine {
                     body: new_body,
                 });
             }
-            NodeKind::Repeat { count, body } => {
+            NodeKind::Repeat {
+                count,
+                index_var,
+                body,
+            } => {
                 let mut new_body = body.clone();
                 new_body.retain(|&id| id != child);
                 parent_node.set_kind(NodeKind::Repeat {
                     count: count.clone(),
+                    index_var: index_var.clone(),
                     body: new_body,
                 });
             }

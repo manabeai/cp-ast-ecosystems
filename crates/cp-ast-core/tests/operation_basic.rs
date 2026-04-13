@@ -493,7 +493,8 @@ fn introduce_multi_test_case_already_exists_fails() {
     let mut engine = AstEngine::new();
     // Add a Repeat node manually (simulating existing multi-test-case)
     let repeat_id = engine.structure.add_node(NodeKind::Repeat {
-        count: Reference::Unresolved(Ident::new("T")),
+        count: Expression::Var(Reference::Unresolved(Ident::new("T"))),
+        index_var: None,
         body: vec![],
     });
     if let Some(root) = engine.structure.get_mut(engine.structure.root()) {

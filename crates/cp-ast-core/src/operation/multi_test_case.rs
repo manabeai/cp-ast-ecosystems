@@ -3,7 +3,7 @@ use super::engine::AstEngine;
 use super::error::OperationError;
 use super::result::ApplyResult;
 use super::types::SumBoundDef;
-use crate::constraint::Constraint;
+use crate::constraint::{Constraint, Expression};
 use crate::structure::{Ident, NodeKind, Reference};
 
 impl AstEngine {
@@ -53,7 +53,8 @@ impl AstEngine {
 
         // 4. Create a new Repeat node with the current children as its body
         let repeat_id = self.structure.add_node(NodeKind::Repeat {
-            count: Reference::VariableRef(count_scalar_id),
+            count: Expression::Var(Reference::VariableRef(count_scalar_id)),
+            index_var: None,
             body: current_children,
         });
 

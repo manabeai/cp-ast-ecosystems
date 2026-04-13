@@ -1,6 +1,6 @@
 //! Constraint TeX rendering.
 
-use crate::constraint::{Constraint, RelationOp, SortOrder};
+use crate::constraint::{Constraint, Expression, RelationOp, SortOrder};
 use crate::operation::AstEngine;
 
 use super::tex_helpers::{expression_to_tex, reference_to_tex, resolve_array_info, IndexAllocator};
@@ -68,9 +68,12 @@ fn render_constraint_tex(
             let lower_str = expression_to_tex(engine, lower, warnings);
             let upper_str = expression_to_tex(engine, upper, warnings);
 
-            if let Some((name, length_ref)) = resolve_array_info(engine, target) {
+            if let Some((name, length_expr)) = resolve_array_info(engine, target) {
                 let idx = alloc.allocate();
-                let length_str = reference_to_tex(engine, &length_ref, warnings);
+                let length_str = match &length_expr {
+                    Expression::Var(r) => reference_to_tex(engine, r, warnings),
+                    _ => format!("{length_expr:?}"),
+                };
                 format!(
                     "${lower_str} \\le {name}_{idx} \\le {upper_str} \\ (1 \\le {idx} \\le {length_str})$"
                 )
@@ -106,8 +109,11 @@ fn render_constraint_tex(
             }
         }
         Constraint::Sorted { elements, order } => {
-            if let Some((name, length_ref)) = resolve_array_info(engine, elements) {
-                let length_str = reference_to_tex(engine, &length_ref, warnings);
+            if let Some((name, length_expr)) = resolve_array_info(engine, elements) {
+                let length_str = match &length_expr {
+                    Expression::Var(r) => reference_to_tex(engine, r, warnings),
+                    _ => format!("{length_expr:?}"),
+                };
                 let op = match order {
                     SortOrder::Ascending | SortOrder::NonDecreasing => "\\le",
                     SortOrder::Descending | SortOrder::NonIncreasing => "\\ge",
