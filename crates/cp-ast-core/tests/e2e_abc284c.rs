@@ -207,54 +207,15 @@ fn e2e_abc284c_full_pipeline() {
         "Should show N constraint, got: {constraint_text}"
     );
 
-    // ── Step 5: Generate 5 samples ──────────────────────────────────────
-    for seed in 0..5 {
-        let sample = generate(&engine, seed).unwrap();
-
-        // N should be Int in [1, 100]
-        let n_val = match sample.values.get(&n_id) {
-            Some(SampleValue::Int(v)) => {
-                assert!((1..=100).contains(v), "seed {seed}: N={v} not in [1, 100]");
-                *v
-            }
-            other => panic!("seed {seed}: expected Int for N, got {other:?}"),
-        };
-
-        // M should be Int ≥ 0 (upper bound is expression, best-effort)
-        match sample.values.get(&m_id) {
-            Some(SampleValue::Int(v)) => {
-                assert!(*v >= 0, "seed {seed}: M={v} should be ≥ 0");
-            }
-            other => panic!("seed {seed}: expected Int for M, got {other:?}"),
-        }
-
-        // u and v should be Int (within Repeat, they may not appear directly
-        // in the top-level sample values depending on generation strategy)
-        // Just verify the sample is non-empty and text renders
-        assert!(!sample.values.is_empty(), "seed {seed}: sample is empty");
-
-        // ── Step 6: Verify sample renders to parseable text ─────────
-        let text = sample_to_text(&engine, &sample);
-        assert!(!text.is_empty(), "seed {seed}: rendered text is empty");
-
-        // First line should contain N value
-        let first_line = text.lines().next().unwrap();
-        let first_tokens: Vec<&str> = first_line.split_whitespace().collect();
-        assert!(
-            !first_tokens.is_empty(),
-            "seed {seed}: first line should have at least one token"
-        );
-        let parsed_n: i64 = first_tokens[0].parse().unwrap_or_else(|_| {
-            panic!(
-                "seed {seed}: N should be parseable, got '{}'",
-                first_tokens[0]
-            )
-        });
-        assert_eq!(
-            parsed_n, n_val,
-            "seed {seed}: rendered N should match generated N"
-        );
-    }
+    // ── Step 5: Generation with unresolved expression ──────────────────
+    // The upper bound "N*(N-1)/2" is stored as an Unresolved name (the expression
+    // parser doesn't yet support complex expressions). The new Result-based API
+    // correctly reports this as an error instead of silently defaulting.
+    let result = generate(&engine, 0);
+    assert!(
+        result.is_err(),
+        "generate() should fail with unresolved expression in constraint"
+    );
 }
 
 // ---------------------------------------------------------------------------

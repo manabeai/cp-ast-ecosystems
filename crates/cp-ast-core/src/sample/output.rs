@@ -90,13 +90,7 @@ fn emit_node(engine: &AstEngine, node_id: NodeId, sample: &GeneratedSample, outp
             if let Some(instances) = sample.repeat_instances.get(&node_id) {
                 for iteration_values in instances {
                     for &child_id in &body {
-                        emit_node_with_values(
-                            engine,
-                            child_id,
-                            iteration_values,
-                            sample,
-                            output,
-                        );
+                        emit_node_with_values(engine, child_id, iteration_values, sample, output);
                     }
                 }
             }
