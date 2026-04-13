@@ -499,25 +499,87 @@ impl<'a> GenerationContext<'a> {
         Ok(())
     }
 
-    #[allow(clippy::unused_self, clippy::unnecessary_wraps)]
     fn generate_repeat(
         &mut self,
-        _node_id: NodeId,
-        _count_ref: &Reference,
-        _body: &[NodeId],
+        node_id: NodeId,
+        count_ref: &Reference,
+        body: &[NodeId],
     ) -> Result<(), GenerationError> {
-        // Stub — will be implemented in Task 3
+        let count = self.resolve_reference_as_int(count_ref)?;
+        let count_usize = usize::try_from(count)
+            .map_err(|_| GenerationError::InvalidExpression("negative repeat count".into()))?;
+
+        if count_usize > self.config.max_repeat_count {
+            return Err(GenerationError::InvalidStructure(format!(
+                "repeat count {count_usize} exceeds limit {}",
+                self.config.max_repeat_count
+            )));
+        }
+
+        let mut instances = Vec::with_capacity(count_usize);
+
+        for _i in 0..count_usize {
+            // Generate body children into self.values so they can reference
+            // each other within the same iteration (e.g., Y depends on X).
+            for &child_id in body {
+                if let Some(node) = self.engine.structure.get(child_id) {
+                    let kind = node.kind().clone();
+                    self.generate_node_inner(child_id, &kind)?;
+                }
+            }
+
+            // Snapshot: copy body child values into iteration map
+            let mut iteration_values = HashMap::new();
+            for &child_id in body {
+                if let Some(val) = self.values.get(&child_id) {
+                    iteration_values.insert(child_id, val.clone());
+                }
+            }
+            instances.push(iteration_values);
+
+            // Remove body child values to prepare for next iteration
+            for &child_id in body {
+                self.values.remove(&child_id);
+            }
+        }
+
+        self.repeat_instances.insert(node_id, instances);
         Ok(())
     }
 
-    #[allow(clippy::unused_self, clippy::unnecessary_wraps)]
     fn generate_choice(
         &mut self,
         _node_id: NodeId,
-        _tag_ref: &Reference,
-        _variants: &[(Literal, Vec<NodeId>)],
+        tag_ref: &Reference,
+        variants: &[(Literal, Vec<NodeId>)],
     ) -> Result<(), GenerationError> {
-        // Stub — will be implemented in Task 4
+        if variants.is_empty() {
+            return Err(GenerationError::InvalidStructure(
+                "Choice node has no variants".into(),
+            ));
+        }
+
+        let idx = self.rng.gen_range(0..variants.len());
+        let (tag_value, children) = &variants[idx];
+
+        // Store the tag value (Choice owns its tag node)
+        if let Reference::VariableRef(tag_id) = tag_ref {
+            let tag_sample = match tag_value {
+                Literal::IntLit(v) => SampleValue::Int(*v),
+                Literal::StrLit(s) => SampleValue::Str(s.clone()),
+            };
+            self.values.insert(*tag_id, tag_sample);
+        }
+
+        // Generate the chosen variant's children
+        let children = children.clone();
+        for child_id in &children {
+            if let Some(node) = self.engine.structure.get(*child_id) {
+                let kind = node.kind().clone();
+                self.generate_node_inner(*child_id, &kind)?;
+            }
+        }
+
         Ok(())
     }
 }
