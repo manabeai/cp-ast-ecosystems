@@ -50,49 +50,19 @@ fn render_node(engine: &AstEngine, node_id: NodeId, output: &mut String) {
             writeln!(output, "{}_{{{},{}}}", name.as_str(), 1, 1).unwrap();
         }
         NodeKind::Tuple { elements } => {
-            for (i, &element_id) in elements.iter().enumerate() {
-                if i > 0 {
-                    output.push(' ');
-                }
-                if let Some(element_node) = engine.structure.get(element_id) {
-                    if let NodeKind::Scalar { name } = element_node.kind() {
-                        output.push_str(name.as_str());
-                    } else {
-                        output.push_str("<?>");
-                    }
-                } else {
-                    output.push_str("<?>");
-                }
-            }
+            render_tuple_elements(engine, elements, false, output);
             output.push('\n');
         }
         NodeKind::Repeat { body, .. } => {
-            // Check if body contains a single Tuple - if so, use indexed form
             if body.len() == 1 {
                 if let Some(body_node) = engine.structure.get(body[0]) {
                     if let NodeKind::Tuple { elements } = body_node.kind() {
-                        // Render in indexed form: u_i v_i (showing the pattern)
-                        for (i, &element_id) in elements.iter().enumerate() {
-                            if i > 0 {
-                                output.push(' ');
-                            }
-                            if let Some(element_node) = engine.structure.get(element_id) {
-                                if let NodeKind::Scalar { name } = element_node.kind() {
-                                    write!(output, "{}_i", name.as_str()).unwrap();
-                                } else {
-                                    output.push_str("<?>");
-                                }
-                            } else {
-                                output.push_str("<?>");
-                            }
-                        }
+                        render_tuple_elements(engine, elements, true, output);
                         output.push('\n');
                         return;
                     }
                 }
             }
-
-            // Default: render body recursively
             for &child_id in body {
                 render_node(engine, child_id, output);
             }
@@ -114,6 +84,48 @@ fn render_node(engine: &AstEngine, node_id: NodeId, output: &mut String) {
         }
         NodeKind::Choice { tag, variants } => {
             render_choice(engine, tag, variants, output);
+        }
+    }
+}
+
+/// Render tuple elements inline, optionally with repeat-body subscript (`_i`).
+fn render_tuple_elements(
+    engine: &AstEngine,
+    elements: &[NodeId],
+    indexed: bool,
+    output: &mut String,
+) {
+    for (i, &element_id) in elements.iter().enumerate() {
+        if i > 0 {
+            output.push(' ');
+        }
+        let Some(element_node) = engine.structure.get(element_id) else {
+            output.push_str("<?>");
+            continue;
+        };
+        match element_node.kind() {
+            NodeKind::Scalar { name } if indexed => {
+                write!(output, "{}_i", name.as_str()).unwrap();
+            }
+            NodeKind::Scalar { name } => {
+                output.push_str(name.as_str());
+            }
+            NodeKind::Array { name, length } => {
+                let len = render_expression(engine, length);
+                if indexed {
+                    write!(
+                        output,
+                        "{n}_{{i,1}} {n}_{{i,2}} … {n}_{{i,{len}_i}}",
+                        n = name.as_str(),
+                    )
+                    .unwrap();
+                } else {
+                    write!(output, "{n}_1 {n}_2 … {n}_{len}", n = name.as_str()).unwrap();
+                }
+            }
+            _ => {
+                output.push_str("<?>");
+            }
         }
     }
 }

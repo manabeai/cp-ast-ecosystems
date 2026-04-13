@@ -215,3 +215,78 @@ fn render_choice_plain_text() {
     assert!(text.contains("If T = 1: X"), "got: {text}");
     assert!(text.contains("If T = 2: Y Z"), "got: {text}");
 }
+
+#[test]
+fn render_tuple_with_inline_array() {
+    let mut engine = AstEngine::new();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let c_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("C"),
+    });
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Expression::Var(Reference::VariableRef(c_id)),
+    });
+    let m_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("M"),
+    });
+    let tuple_id = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![n_id, a_id, m_id],
+    });
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![tuple_id],
+        });
+
+    let text = render_input(&engine);
+    assert_eq!(text, "N A_1 A_2 … A_C M\n");
+}
+
+#[test]
+fn render_repeat_tuple_with_inline_array() {
+    let mut engine = AstEngine::new();
+    let q_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("Q"),
+    });
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let c_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("C"),
+    });
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Expression::Var(Reference::VariableRef(c_id)),
+    });
+    let m_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("M"),
+    });
+    let tuple_id = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![n_id, a_id, m_id],
+    });
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Expression::Var(Reference::VariableRef(q_id)),
+        index_var: None,
+        body: vec![tuple_id],
+    });
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![q_id, repeat_id],
+        });
+
+    let text = render_input(&engine);
+    assert!(
+        text.contains("N_i A_{i,1} A_{i,2} … A_{i,C_i} M_i"),
+        "got: {text}"
+    );
+}
