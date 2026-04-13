@@ -1,6 +1,6 @@
 use cp_ast_core::constraint::{
-    ArithOp, CharSetSpec, ConstraintId, DistinctUnit, PropertyTag, RelationOp,
-    RenderHintKind, Separator, SortOrder,
+    ArithOp, CharSetSpec, ConstraintId, DistinctUnit, PropertyTag, RelationOp, RenderHintKind,
+    Separator, SortOrder,
 };
 
 #[test]

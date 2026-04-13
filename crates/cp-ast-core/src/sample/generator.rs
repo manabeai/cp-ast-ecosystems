@@ -110,6 +110,7 @@ struct GenerationContext<'a> {
     values: HashMap<NodeId, SampleValue>,
     repeat_instances: HashMap<NodeId, Vec<HashMap<NodeId, SampleValue>>>,
     config: GenerationConfig,
+    loop_vars: HashMap<Ident, i64>,
 }
 
 impl<'a> GenerationContext<'a> {
@@ -120,6 +121,7 @@ impl<'a> GenerationContext<'a> {
             values: HashMap::new(),
             repeat_instances: HashMap::new(),
             config,
+            loop_vars: HashMap::new(),
         }
     }
 
@@ -265,13 +267,60 @@ impl<'a> GenerationContext<'a> {
         }
     }
 
-    fn resolve_expression_as_int_shim(&self, expr: &Expression) -> Result<i64, GenerationError> {
+    fn resolve_expression_as_int(&self, expr: &Expression) -> Result<i64, GenerationError> {
         match expr {
-            Expression::Var(reference) => self.resolve_reference_as_int(reference),
             Expression::Lit(v) => Ok(*v),
-            _ => Err(GenerationError::InvalidExpression(
-                "complex expressions not yet supported".into(),
-            )),
+            Expression::Var(reference) => {
+                if let Reference::Unresolved(name) = reference {
+                    if let Some(&val) = self.loop_vars.get(name) {
+                        return Ok(val);
+                    }
+                }
+                self.resolve_reference_as_int(reference)
+            }
+            Expression::BinOp { op, lhs, rhs } => {
+                let l = self.resolve_expression_as_int(lhs)?;
+                let r = self.resolve_expression_as_int(rhs)?;
+                match op {
+                    ArithOp::Add => l.checked_add(r),
+                    ArithOp::Sub => l.checked_sub(r),
+                    ArithOp::Mul => l.checked_mul(r),
+                    ArithOp::Div => {
+                        if r == 0 {
+                            None
+                        } else {
+                            l.checked_div(r)
+                        }
+                    }
+                }
+                .ok_or_else(|| GenerationError::InvalidExpression("arithmetic overflow".into()))
+            }
+            Expression::Pow { base, exp } => {
+                let b = self.resolve_expression_as_int(base)?;
+                let e = self.resolve_expression_as_int(exp)?;
+                let e_u32 = u32::try_from(e)
+                    .map_err(|_| GenerationError::InvalidExpression("negative exponent".into()))?;
+                b.checked_pow(e_u32)
+                    .ok_or_else(|| GenerationError::InvalidExpression("power overflow".into()))
+            }
+            Expression::FnCall { name, args } => {
+                let resolved: Result<Vec<i64>, _> = args
+                    .iter()
+                    .map(|a| self.resolve_expression_as_int(a))
+                    .collect();
+                let resolved = resolved?;
+                match name.as_str() {
+                    "min" => resolved.iter().copied().min().ok_or_else(|| {
+                        GenerationError::InvalidExpression("min() with no args".into())
+                    }),
+                    "max" => resolved.iter().copied().max().ok_or_else(|| {
+                        GenerationError::InvalidExpression("max() with no args".into())
+                    }),
+                    other => Err(GenerationError::InvalidExpression(format!(
+                        "unsupported function: {other}"
+                    ))),
+                }
+            }
         }
     }
 
@@ -393,7 +442,7 @@ impl<'a> GenerationContext<'a> {
         node_id: NodeId,
         length_expr: &Expression,
     ) -> Result<(), GenerationError> {
-        let len = self.resolve_expression_as_int_shim(length_expr)?;
+        let len = self.resolve_expression_as_int(length_expr)?;
         let constraints = get_node_constraints(self.engine, node_id);
         let (lo, hi) = self.resolve_range(&constraints)?;
 
@@ -521,7 +570,7 @@ impl<'a> GenerationContext<'a> {
         _index_var: Option<&Ident>,
         body: &[NodeId],
     ) -> Result<(), GenerationError> {
-        let count = self.resolve_expression_as_int_shim(count_expr)?;
+        let count = self.resolve_expression_as_int(count_expr)?;
         let count_usize = usize::try_from(count)
             .map_err(|_| GenerationError::InvalidExpression("negative repeat count".into()))?;
 

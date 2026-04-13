@@ -1,6 +1,4 @@
-use cp_ast_core::constraint::{
-    ArithOp, Constraint, DistinctUnit, Expression, SortOrder,
-};
+use cp_ast_core::constraint::{ArithOp, Constraint, DistinctUnit, Expression, SortOrder};
 use cp_ast_core::operation::AstEngine;
 use cp_ast_core::render_tex::{
     render_constraints_tex, render_full_tex, render_input_tex, SectionMode, TexOptions,

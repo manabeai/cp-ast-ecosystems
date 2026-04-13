@@ -1227,3 +1227,123 @@ fn generate_cycle_returns_error() {
         "Expected CycleDetected error"
     );
 }
+
+#[test]
+fn repeat_with_expression_count_n_minus_1() {
+    let mut engine = AstEngine::default();
+
+    // N = 5
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(n_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(5),
+            upper: Expression::Lit(5),
+        },
+    );
+
+    // u_i scalar (body of repeat)
+    let u_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("u"),
+    });
+    engine.constraints.add(
+        Some(u_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(u_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(u_id),
+        Constraint::Range {
+            target: Reference::VariableRef(u_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Var(Reference::VariableRef(n_id)),
+        },
+    );
+
+    // Repeat N-1 times
+    let count_expr = Expression::BinOp {
+        op: ArithOp::Sub,
+        lhs: Box::new(Expression::Var(Reference::VariableRef(n_id))),
+        rhs: Box::new(Expression::Lit(1)),
+    };
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: count_expr,
+        index_var: None,
+        body: vec![u_id],
+    });
+
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![n_id, repeat_id],
+        });
+
+    let sample = generate(&engine, 42).unwrap();
+    // N=5, so N-1=4 edges
+    assert_eq!(sample.repeat_instances[&repeat_id].len(), 4);
+
+    // Each iteration should have a value for u_id in range [1, 5]
+    for instance in &sample.repeat_instances[&repeat_id] {
+        if let Some(SampleValue::Int(v)) = instance.get(&u_id) {
+            assert!((1..=5).contains(v), "u should be in [1, 5], got {v}");
+        } else {
+            panic!("Expected Int value for u_id in iteration");
+        }
+    }
+}
+
+#[test]
+fn repeat_with_literal_count() {
+    let mut engine = AstEngine::default();
+    let x_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("X"),
+    });
+    engine.constraints.add(
+        Some(x_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(x_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(x_id),
+        Constraint::Range {
+            target: Reference::VariableRef(x_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Expression::Lit(3),
+        index_var: None,
+        body: vec![x_id],
+    });
+
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![repeat_id],
+        });
+
+    let sample = generate(&engine, 42).unwrap();
+    assert_eq!(sample.repeat_instances[&repeat_id].len(), 3);
+}
