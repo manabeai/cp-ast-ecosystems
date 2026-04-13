@@ -1,4 +1,5 @@
-//! End-to-end integration tests for Gap Resolution (A, B, H, D).
+//! End-to-end integration tests for Gap Resolution (A, B, H, D)
+//! and Phase 3 rendering completeness.
 //!
 //! Tests real-world competitive programming input patterns that were
 //! previously impossible to express with the AST.
@@ -631,4 +632,241 @@ fn e2e_tuple_inline_array_top_level() {
             "array element {elem} should be in 10..=99"
         );
     }
+}
+
+/// P3-T05: Full `abc356_c` pattern — Tuple header (N, M, K) with Repeat
+/// containing Tuple(C, Array(A, length=C), R).
+///
+/// Tests all three renderers (sample output, plain text, TeX) together.
+///
+/// Pattern:
+///   `N M K`
+///   `C_1 A_{1,1} ... A_{1,C_1} R_1`
+///   ...
+///   `C_M A_{M,1} ... A_{M,C_M} R_M`
+#[test]
+#[allow(clippy::too_many_lines)]
+fn e2e_abc356c_pattern() {
+    let mut engine = AstEngine::default();
+
+    // --- Header scalars: N, M, K ---
+
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(n_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    let m_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("M"),
+    });
+    engine.constraints.add(
+        Some(m_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(m_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(m_id),
+        Constraint::Range {
+            target: Reference::VariableRef(m_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(5),
+        },
+    );
+
+    let k_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("K"),
+    });
+    engine.constraints.add(
+        Some(k_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(k_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(k_id),
+        Constraint::Range {
+            target: Reference::VariableRef(k_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    // --- Body elements: C (scalar), A (array, length=C), R (scalar) ---
+
+    let c_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("C"),
+    });
+    engine.constraints.add(
+        Some(c_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(c_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(c_id),
+        Constraint::Range {
+            target: Reference::VariableRef(c_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(4),
+        },
+    );
+
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Expression::Var(Reference::VariableRef(c_id)),
+    });
+    engine.constraints.add(
+        Some(a_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(a_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(a_id),
+        Constraint::Range {
+            target: Reference::IndexedRef {
+                target: a_id,
+                indices: vec![Ident::new("j")],
+            },
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(50),
+        },
+    );
+
+    let r_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("R"),
+    });
+    engine.constraints.add(
+        Some(r_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(r_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(r_id),
+        Constraint::Range {
+            target: Reference::VariableRef(r_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    // --- Structure: Sequence [ Tuple(N,M,K), Repeat(M) { Tuple(C,A,R) } ] ---
+
+    let header_id = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![n_id, m_id, k_id],
+    });
+
+    let body_tuple_id = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![c_id, a_id, r_id],
+    });
+
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Expression::Var(Reference::VariableRef(m_id)),
+        index_var: None,
+        body: vec![body_tuple_id],
+    });
+
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![header_id, repeat_id],
+        });
+
+    // --- 1. Sample generation & output verification ---
+
+    let sample = generate(&engine, 42).unwrap();
+    let output = sample_to_text(&engine, &sample);
+    let lines: Vec<&str> = output.trim().lines().collect();
+
+    // Header: 3 space-separated tokens (N M K)
+    let header_parts: Vec<&str> = lines[0].split_whitespace().collect();
+    assert_eq!(
+        header_parts.len(),
+        3,
+        "header should have 3 tokens (N M K), got: {header_parts:?}"
+    );
+    let m_val: usize = header_parts[1].parse().unwrap();
+    assert!((1..=5).contains(&m_val), "M={m_val} should be in 1..=5");
+
+    // M body lines
+    assert_eq!(
+        lines.len(),
+        1 + m_val,
+        "expected {} lines (header + {m_val} body), got: {lines:?}",
+        1 + m_val,
+    );
+
+    for (i, line) in lines[1..].iter().enumerate() {
+        let parts: Vec<i64> = line
+            .split_whitespace()
+            .map(|s| s.parse().unwrap())
+            .collect();
+
+        let c = parts[0];
+        assert!((1..=4).contains(&c), "line {i}: C={c} should be in 1..=4");
+
+        // Total tokens = C + C_i array elements + R
+        let expected_len = 1 + usize::try_from(c).unwrap() + 1;
+        assert_eq!(
+            parts.len(),
+            expected_len,
+            "line {i}: expected {expected_len} tokens, got {parts:?}",
+        );
+
+        // Array elements in 1..=50
+        for &elem in &parts[1..parts.len() - 1] {
+            assert!(
+                (1..=50).contains(&elem),
+                "line {i}: array element {elem} should be in 1..=50"
+            );
+        }
+
+        // R in 1..=100
+        let r = *parts.last().unwrap();
+        assert!(
+            (1..=100).contains(&r),
+            "line {i}: R={r} should be in 1..=100"
+        );
+    }
+
+    // --- 2. Plain text rendering ---
+
+    let text = render_input(&engine);
+    assert!(
+        text.contains('N') && text.contains('M') && text.contains('K'),
+        "plain text should mention N, M, K: {text}"
+    );
+
+    // --- 3. TeX rendering ---
+
+    let tex_result = render_input_tex(&engine, &TexOptions::default());
+    assert!(
+        tex_result.tex.contains("\\begin{array}"),
+        "TeX should contain \\begin{{array}}: {}",
+        tex_result.tex
+    );
 }

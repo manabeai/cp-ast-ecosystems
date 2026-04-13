@@ -54,12 +54,24 @@ Gaps A, B, H, D を解消。8 タスク (T-01〜T-08) 完了、テスト 204 通
 
 ### 近い将来（Phase 2 候補）
 
-core 型の拡張と既存モジュールの強化。設計済みだが未着手。
+core 型の拡張と既存モジュールの強化。
 
-| 項目 | 概要 | 優先度 |
-|------|------|--------|
-| Tuple 内 inline Array | Tuple の要素に直接 Array を持てるように（`(A_i, B_i)` パターン） | 中 |
-| 文字列長・文字種制約の強化 | StringLength / CharSet の表現力向上 | 中 |
+| 項目 | 概要 | 状態 |
+|------|------|------|
+| Tuple 内 inline Array | Tuple の要素に直接 Array を持てるように（`(C_i, A_{i,j}, R_i)` パターン） | ✅ 完了 |
+| 文字列長・文字種制約の描画 | CharSetSpec Display impl による制約テキスト表示 | ✅ 完了 |
+
+### Phase 3: Rendering completeness（完了）
+
+描画の完全性を確保するフェーズ。Tuple 内 inline Array の全レンダラ対応と E2E テスト。
+
+| タスク | 内容 | 状態 |
+|-------|------|------|
+| P3-T01 | CharSetSpec Display impl（文字種制約のテキスト表示） | ✅ 完了 |
+| P3-T02 | Tuple inline Array output（sample 出力が既に正しく動作、テスト追加で確認） | ✅ 完了 |
+| P3-T03 | Tuple inline Array プレーンテキスト描画（render_input 対応） | ✅ 完了 |
+| P3-T04 | Tuple inline Array TeX 描画（render_input_tex 対応） | ✅ 完了 |
+| P3-T05 | E2E 統合テスト（abc356_c パターン全レンダラ検証）＋ドキュメント更新 | ✅ 完了 |
 
 ### 中期（インフラ・接続）
 
@@ -95,11 +107,11 @@ crates/cp-ast-core/src/
 ├── sample/        (4 files)  — テストケース生成
 └── lib.rs
 
-テスト: 204 passing (unit + integration + e2e)
+テスト: 220 passing (unit + integration + e2e)
 ```
 
 ## まとめ
 
-**完了**: AST Core の全基盤（構造・制約・操作・投影・テキスト描画・TeX 描画・サンプル生成）＋ Gap Resolution（Expression 化、ループ変数、Choice 描画改善）
+**完了**: AST Core の全基盤（構造・制約・操作・投影・テキスト描画・TeX 描画・サンプル生成）＋ Gap Resolution（Expression 化、ループ変数、Choice 描画改善）＋ Phase 3 Rendering completeness（Tuple 内 inline Array 全レンダラ対応、CharSetSpec Display）
 
-**次のステップ**: フロントエンド接続（WASM + 構造化エディタ）、またはさらなる core 型拡張（Tuple 内 inline Array、文字列制約強化）。
+**次のステップ**: フロントエンド接続（WASM + 構造化エディタ）、またはさらなる core 型拡張。
