@@ -189,29 +189,67 @@ fn emit_node_with_values(
         NodeKind::Choice { tag, variants } => {
             let tag = tag.clone();
             let variants = variants.clone();
-            if let Reference::VariableRef(tag_id) = &tag {
-                if let Some(tag_val) = values.get(tag_id) {
-                    for (lit, children) in &variants {
-                        if literal_matches_value(lit, tag_val) {
-                            for &child_id in children {
-                                emit_node_with_values(engine, child_id, values, sample, output);
-                            }
-                            return;
-                        }
-                    }
-                }
-            }
-            // Fallback: emit first variant
-            if let Some((_, children)) = variants.first() {
-                for &child_id in children {
-                    emit_node_with_values(engine, child_id, values, sample, output);
-                }
-            }
+            emit_choice_with_values(engine, &tag, &variants, values, sample, output);
         }
         _ => {
             // For other node types in repeat body, fall back to sample.values
             emit_node(engine, node_id, sample, output);
         }
+    }
+}
+
+/// Emit a Choice node using iteration values (for Repeat body context).
+///
+/// Renders tag + chosen variant children as a single tuple-like line.
+fn emit_choice_with_values(
+    engine: &AstEngine,
+    tag: &Reference,
+    variants: &[(Literal, Vec<NodeId>)],
+    values: &HashMap<NodeId, SampleValue>,
+    sample: &GeneratedSample,
+    output: &mut String,
+) {
+    let emit_variant = |children: &[NodeId], output: &mut String| {
+        let mut parts = Vec::new();
+        if let Reference::VariableRef(tag_id) = tag {
+            if let Some(tv) = values.get(tag_id) {
+                parts.push(format_value(tv));
+            }
+        }
+        let mut has_non_scalar = false;
+        for &child_id in children {
+            if let Some(value) = values.get(&child_id) {
+                parts.push(format_value(value));
+            } else {
+                has_non_scalar = true;
+            }
+        }
+        if !parts.is_empty() {
+            output.push_str(&parts.join(" "));
+            if has_non_scalar {
+                output.push(' ');
+            } else {
+                output.push('\n');
+            }
+        }
+        for &child_id in children {
+            if !values.contains_key(&child_id) {
+                emit_node_with_values(engine, child_id, values, sample, output);
+            }
+        }
+    };
+    if let Reference::VariableRef(tag_id) = tag {
+        if let Some(tag_val) = values.get(tag_id) {
+            for (lit, children) in variants {
+                if literal_matches_value(lit, tag_val) {
+                    emit_variant(children, output);
+                    return;
+                }
+            }
+        }
+    }
+    if let Some((_, children)) = variants.first() {
+        emit_variant(children, output);
     }
 }
 

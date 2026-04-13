@@ -346,7 +346,7 @@ impl<'a> GenerationContext<'a> {
             match node.kind() {
                 NodeKind::Repeat { body, .. } => {
                     for &child in body {
-                        skip.insert(child);
+                        self.collect_descendants(child, &mut skip);
                     }
                 }
                 NodeKind::Choice { tag, variants } => {
@@ -355,7 +355,7 @@ impl<'a> GenerationContext<'a> {
                     }
                     for (_, children) in variants {
                         for &child in children {
-                            skip.insert(child);
+                            self.collect_descendants(child, &mut skip);
                         }
                     }
                 }
@@ -363,6 +363,35 @@ impl<'a> GenerationContext<'a> {
             }
         }
         skip
+    }
+
+    /// Recursively collect a node and all its structural children into `set`.
+    fn collect_descendants(&self, node_id: NodeId, set: &mut HashSet<NodeId>) {
+        if !set.insert(node_id) {
+            return;
+        }
+        if let Some(node) = self.engine.structure.get(node_id) {
+            match node.kind() {
+                NodeKind::Tuple { elements } => {
+                    for &child in elements {
+                        self.collect_descendants(child, set);
+                    }
+                }
+                NodeKind::Sequence { children } | NodeKind::Section { body: children, .. } => {
+                    for &child in children {
+                        self.collect_descendants(child, set);
+                    }
+                }
+                NodeKind::Choice { variants, .. } => {
+                    for (_, children) in variants {
+                        for &child in children {
+                            self.collect_descendants(child, set);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 
     fn generate_node_inner(
@@ -596,10 +625,7 @@ impl<'a> GenerationContext<'a> {
             // Generate body children into self.values so they can reference
             // each other within the same iteration (e.g., Y depends on X).
             for &child_id in body {
-                if let Some(node) = self.engine.structure.get(child_id) {
-                    let kind = node.kind().clone();
-                    self.generate_node_inner(child_id, &kind)?;
-                }
+                self.generate_body_recursive(child_id)?;
             }
 
             // Snapshot: collect ALL new values produced during this iteration
@@ -631,6 +657,34 @@ impl<'a> GenerationContext<'a> {
         }
 
         self.repeat_instances.insert(node_id, instances);
+        Ok(())
+    }
+
+    /// Recursively generate a node in a Repeat/Choice body context.
+    /// Structural containers (Tuple, Sequence, Section) are expanded to
+    /// generate their children, while leaf-like nodes delegate to `generate_node_inner`.
+    fn generate_body_recursive(&mut self, node_id: NodeId) -> Result<(), GenerationError> {
+        let Some(node) = self.engine.structure.get(node_id) else {
+            return Ok(());
+        };
+        let kind = node.kind().clone();
+        match &kind {
+            NodeKind::Tuple { elements } => {
+                let elements = elements.clone();
+                for &eid in &elements {
+                    self.generate_body_recursive(eid)?;
+                }
+            }
+            NodeKind::Sequence { children } | NodeKind::Section { body: children, .. } => {
+                let children = children.clone();
+                for &cid in &children {
+                    self.generate_body_recursive(cid)?;
+                }
+            }
+            _ => {
+                self.generate_node_inner(node_id, &kind)?;
+            }
+        }
         Ok(())
     }
 
