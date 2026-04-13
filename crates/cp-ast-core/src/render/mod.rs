@@ -6,7 +6,7 @@
 pub mod constraint_text;
 pub mod input_format;
 
-pub use constraint_text::render_constraints;
+pub use constraint_text::{render_constraints, render_single_constraint};
 pub use input_format::render_input;
 
 use crate::constraint::{ArithOp, Expression};
@@ -14,7 +14,8 @@ use crate::operation::AstEngine;
 use crate::structure::{NodeKind, Reference};
 
 /// Render a `Reference` to a human-readable string, resolving node names from the AST.
-pub(crate) fn render_reference(engine: &AstEngine, reference: &Reference) -> String {
+#[must_use]
+pub fn render_reference(engine: &AstEngine, reference: &Reference) -> String {
     match reference {
         Reference::VariableRef(node_id) => {
             if let Some(node) = engine.structure.get(*node_id) {
@@ -49,7 +50,8 @@ pub(crate) fn render_reference(engine: &AstEngine, reference: &Reference) -> Str
 }
 
 /// Render an `Expression` to a human-readable string.
-pub(crate) fn render_expression(engine: &AstEngine, expr: &Expression) -> String {
+#[must_use]
+pub fn render_expression(engine: &AstEngine, expr: &Expression) -> String {
     match expr {
         Expression::Lit(v) => v.to_string(),
         Expression::Var(reference) => render_reference(engine, reference),

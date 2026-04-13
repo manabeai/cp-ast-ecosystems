@@ -12,7 +12,7 @@ pub fn render_constraints(engine: &AstEngine) -> String {
 
     // Group constraints by type in display order
     for (_, constraint) in engine.constraints.iter() {
-        let rendered = render_constraint(engine, constraint);
+        let rendered = render_single_constraint(engine, constraint);
         let type_index = match constraint {
             Constraint::Range { .. } => 0,
             Constraint::TypeDecl { .. } => 1,
@@ -43,7 +43,9 @@ pub fn render_constraints(engine: &AstEngine) -> String {
     output
 }
 
-fn render_constraint(engine: &AstEngine, constraint: &Constraint) -> String {
+/// Render a single constraint to a human-readable string.
+#[must_use]
+pub fn render_single_constraint(engine: &AstEngine, constraint: &Constraint) -> String {
     match constraint {
         Constraint::Range {
             target,

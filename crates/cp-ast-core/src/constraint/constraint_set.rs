@@ -81,6 +81,14 @@ impl ConstraintSet {
         &self.global
     }
 
+    /// Iterate over (`NodeId`, `&[ConstraintId]`) pairs for all nodes with constraints.
+    pub fn nodes_with_constraints(&self) -> impl Iterator<Item = (NodeId, &[ConstraintId])> {
+        self.by_node
+            .iter()
+            .filter(|(_, ids)| !ids.is_empty())
+            .map(|(node_id, ids)| (*node_id, ids.as_slice()))
+    }
+
     /// Count of live constraints.
     #[must_use]
     pub fn len(&self) -> usize {
