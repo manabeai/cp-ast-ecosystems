@@ -73,6 +73,21 @@ core 型の拡張と既存モジュールの強化。
 | P3-T04 | Tuple inline Array TeX 描画（render_input_tex 対応） | ✅ 完了 |
 | P3-T05 | E2E 統合テスト（abc356_c パターン全レンダラ検証）＋ドキュメント更新 | ✅ 完了 |
 
+### Phase 4: AST Tree Viewer（完了）
+
+AST をコンソールに ASCII ツリーとして表示するデバッグ・観察用ツール。
+
+| タスク | 内容 | 状態 |
+|-------|------|------|
+| P4-T01 | TreeVisitor trait + DefaultTreeVisitor（cp-ast-core） | ✅ 完了 |
+| P4-T02 | render_single_constraint 公開 + nodes_with_constraints() | ✅ 完了 |
+| P4-T03 | cp-ast-tree クレート作成（drawing.rs + structure_tree.rs） | ✅ 完了 |
+| P4-T04 | constraint_tree.rs（ノード別制約グループ表示） | ✅ 完了 |
+| P4-T05 | combined_tree.rs（構造木 + インライン制約アノテーション） | ✅ 完了 |
+| P4-T06 | ドキュメント更新 | ✅ 完了 |
+
+`cp-ast-tree` は `TreeVisitor` trait を介して `NodeKind` に直接依存しない設計。
+
 ### 中期（インフラ・接続）
 
 | 項目 | 概要 |
@@ -98,7 +113,7 @@ core 型の拡張と既存モジュールの強化。
 
 ```
 crates/cp-ast-core/src/
-├── structure/     (6 files)  — AST ノード・参照・型
+├── structure/     (7 files)  — AST ノード・参照・型・TreeVisitor
 ├── constraint/    (7 files)  — 制約・式・型
 ├── operation/     (8 files)  — 編集操作・エンジン
 ├── projection/    (4 files)  — UI 向け読み取り像
@@ -107,11 +122,18 @@ crates/cp-ast-core/src/
 ├── sample/        (4 files)  — テストケース生成
 └── lib.rs
 
-テスト: 220 passing (unit + integration + e2e)
+crates/cp-ast-tree/src/
+├── drawing.rs              — ASCII ツリー描画プリミティブ
+├── structure_tree.rs       — 構造木表示
+├── constraint_tree.rs      — 制約グループ表示
+├── combined_tree.rs        — 構造木＋制約アノテーション
+└── lib.rs                  — TreeOptions + 公開 API
+
+テスト: 238 passing (unit + integration + e2e)
 ```
 
 ## まとめ
 
-**完了**: AST Core の全基盤（構造・制約・操作・投影・テキスト描画・TeX 描画・サンプル生成）＋ Gap Resolution（Expression 化、ループ変数、Choice 描画改善）＋ Phase 3 Rendering completeness（Tuple 内 inline Array 全レンダラ対応、CharSetSpec Display）
+**完了**: AST Core の全基盤（構造・制約・操作・投影・テキスト描画・TeX 描画・サンプル生成）＋ Gap Resolution（Expression 化、ループ変数、Choice 描画改善）＋ Phase 3 Rendering completeness（Tuple 内 inline Array 全レンダラ対応、CharSetSpec Display）＋ Phase 4 AST Tree Viewer（ASCII ツリー表示、TreeVisitor 分離設計）
 
 **次のステップ**: フロントエンド接続（WASM + 構造化エディタ）、またはさらなる core 型拡張。

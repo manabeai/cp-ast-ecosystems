@@ -19,6 +19,7 @@
 
 ## Project Structure
 - `crates/cp-ast-core/` — Core AST types (StructureAST + ConstraintAST)
+- `crates/cp-ast-tree/` — ASCII tree renderer for AST inspection (depends on cp-ast-core)
 - `doc/` — Design documents and references
 - `doc/plan/main.md` — Project architecture overview (full vision)
 - `doc/plan/processing.md` — Implementation progress and roadmap
