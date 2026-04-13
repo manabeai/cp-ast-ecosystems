@@ -52,31 +52,7 @@ fn collect_lines(
             lines.push(ident_to_tex(name));
         }
         NodeKind::Tuple { elements } => {
-            let parts: Vec<String> = elements
-                .iter()
-                .map(|&eid| {
-                    if let Some(enode) = engine.structure.get(eid) {
-                        match enode.kind() {
-                            NodeKind::Scalar { name } => ident_to_tex(name),
-                            NodeKind::Hole { .. } => {
-                                if options.include_holes {
-                                    warnings.push(TexWarning::HoleEncountered { node_id: eid });
-                                    "\\texttt{<hole>}".to_owned()
-                                } else {
-                                    String::new()
-                                }
-                            }
-                            _ => "\\texttt{<?>}".to_owned(),
-                        }
-                    } else {
-                        "\\texttt{<?>}".to_owned()
-                    }
-                })
-                .filter(|s| !s.is_empty())
-                .collect();
-            if !parts.is_empty() {
-                lines.push(parts.join(" \\ "));
-            }
+            render_tuple_line(engine, elements, lines, warnings, options);
         }
         NodeKind::Array { name, length } => {
             let name_str = ident_to_tex(name);
@@ -147,6 +123,46 @@ fn collect_lines(
     }
 }
 
+/// Render a Tuple node as a single line with inline Array expansion.
+fn render_tuple_line(
+    engine: &AstEngine,
+    elements: &[NodeId],
+    lines: &mut Vec<String>,
+    warnings: &mut Vec<TexWarning>,
+    options: &TexOptions,
+) {
+    let parts: Vec<String> = elements
+        .iter()
+        .map(|&eid| {
+            if let Some(enode) = engine.structure.get(eid) {
+                match enode.kind() {
+                    NodeKind::Scalar { name } => ident_to_tex(name),
+                    NodeKind::Array { name, length } => {
+                        let n = ident_to_tex(name);
+                        let l = expression_to_tex(engine, length, warnings);
+                        format!("{n}_1 \\ {n}_2 \\ \\cdots \\ {n}_{{{l}}}")
+                    }
+                    NodeKind::Hole { .. } => {
+                        if options.include_holes {
+                            warnings.push(TexWarning::HoleEncountered { node_id: eid });
+                            "\\texttt{<hole>}".to_owned()
+                        } else {
+                            String::new()
+                        }
+                    }
+                    _ => "\\texttt{<?>}".to_owned(),
+                }
+            } else {
+                "\\texttt{<?>}".to_owned()
+            }
+        })
+        .filter(|s| !s.is_empty())
+        .collect();
+    if !parts.is_empty() {
+        lines.push(parts.join(" \\ "));
+    }
+}
+
 /// Render Repeat node as subscripted vertical expansion.
 fn render_repeat_lines(
     engine: &AstEngine,
@@ -169,31 +185,9 @@ fn render_repeat_lines(
             }
             // Check if body is a single Tuple
             if let NodeKind::Tuple { elements } = body_node.kind() {
-                let names: Vec<String> = elements
-                    .iter()
-                    .filter_map(|&eid| {
-                        engine.structure.get(eid).and_then(|n| {
-                            if let NodeKind::Scalar { name } = n.kind() {
-                                Some(ident_to_tex(name))
-                            } else {
-                                None
-                            }
-                        })
-                    })
-                    .collect();
-                if !names.is_empty() {
-                    // First line: u_1 \ v_1
-                    let first: Vec<String> = names.iter().map(|n| format!("{n}_1")).collect();
-                    lines.push(first.join(" \\ "));
-                    // Second line: u_2 \ v_2
-                    let second: Vec<String> = names.iter().map(|n| format!("{n}_2")).collect();
-                    lines.push(second.join(" \\ "));
-                    // Vdots
-                    lines.push("\\vdots".to_owned());
-                    // Last line: u_M \ v_M
-                    let last: Vec<String> =
-                        names.iter().map(|n| format!("{n}_{count_str}")).collect();
-                    lines.push(last.join(" \\ "));
+                let elems = collect_tuple_elements(engine, elements, warnings);
+                if !elems.is_empty() {
+                    render_repeat_tuple_rows(count_str, &elems, lines);
                     return;
                 }
             }
@@ -204,4 +198,58 @@ fn render_repeat_lines(
     for &child_id in body {
         collect_lines(engine, child_id, lines, warnings, options);
     }
+}
+
+/// A Tuple element in repeat context: either a Scalar or an inline Array.
+enum RepeatTupleElem {
+    Scalar { name: String },
+    Array { name: String, length_tex: String },
+}
+
+impl RepeatTupleElem {
+    /// Render this element for the given row index string.
+    fn render_row(&self, row: &str) -> String {
+        match self {
+            Self::Scalar { name } => format!("{name}_{row}"),
+            Self::Array { name, length_tex } => {
+                format!(
+                    "{name}_{{{row},1}} \\ {name}_{{{row},2}} \\ \\cdots \\ {name}_{{{row},{length_tex}_{row}}}"
+                )
+            }
+        }
+    }
+}
+
+/// Collect Tuple elements as `RepeatTupleElem` for repeat-body rendering.
+fn collect_tuple_elements(
+    engine: &AstEngine,
+    elements: &[NodeId],
+    warnings: &mut Vec<TexWarning>,
+) -> Vec<RepeatTupleElem> {
+    elements
+        .iter()
+        .filter_map(|&eid| {
+            engine.structure.get(eid).and_then(|n| match n.kind() {
+                NodeKind::Scalar { name } => Some(RepeatTupleElem::Scalar {
+                    name: ident_to_tex(name),
+                }),
+                NodeKind::Array { name, length } => Some(RepeatTupleElem::Array {
+                    name: ident_to_tex(name),
+                    length_tex: expression_to_tex(engine, length, warnings),
+                }),
+                _ => None,
+            })
+        })
+        .collect()
+}
+
+/// Render repeat tuple rows: first, second, vdots, last.
+fn render_repeat_tuple_rows(count_str: &str, elems: &[RepeatTupleElem], lines: &mut Vec<String>) {
+    for row in &["1", "2"] {
+        let parts: Vec<String> = elems.iter().map(|e| e.render_row(row)).collect();
+        lines.push(parts.join(" \\ "));
+    }
+    lines.push("\\vdots".to_owned());
+    let last_parts: Vec<String> = elems.iter().map(|e| e.render_row(count_str)).collect();
+    lines.push(last_parts.join(" \\ "));
 }

@@ -936,3 +936,94 @@ fn tex_choice_cases_environment() {
         result.tex
     );
 }
+
+#[test]
+fn input_tex_tuple_with_inline_array() {
+    use cp_ast_core::constraint::Expression;
+
+    let mut engine = AstEngine::default();
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let c_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("C"),
+    });
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Expression::Var(Reference::VariableRef(c_id)),
+    });
+    let m_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("M"),
+    });
+    let tuple_id = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![n_id, a_id, m_id],
+    });
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![tuple_id],
+        });
+
+    let result = render_input_tex(&engine, &TexOptions::default());
+    assert_eq!(
+        result.tex,
+        "\\[\n\\begin{array}{l}\n\
+         N \\ A_1 \\ A_2 \\ \\cdots \\ A_{C} \\ M\n\
+         \\end{array}\n\\]\n"
+    );
+}
+
+#[test]
+fn input_tex_repeat_tuple_with_array() {
+    use cp_ast_core::constraint::Expression;
+
+    let mut engine = AstEngine::default();
+    let m_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("M"),
+    });
+    let c_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("C"),
+    });
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Expression::Var(Reference::VariableRef(c_id)),
+    });
+    let k_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("K"),
+    });
+    let tuple_id = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![n_id, a_id, k_id],
+    });
+    let repeat_id = engine.structure.add_node(NodeKind::Repeat {
+        count: Expression::Var(Reference::VariableRef(m_id)),
+        index_var: None,
+        body: vec![tuple_id],
+    });
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![m_id, repeat_id],
+        });
+
+    let result = render_input_tex(&engine, &TexOptions::default());
+    let expected = "\
+\\[\n\
+\\begin{array}{l}\n\
+M \\\\\n\
+N_1 \\ A_{1,1} \\ A_{1,2} \\ \\cdots \\ A_{1,C_1} \\ K_1 \\\\\n\
+N_2 \\ A_{2,1} \\ A_{2,2} \\ \\cdots \\ A_{2,C_2} \\ K_2 \\\\\n\
+\\vdots \\\\\n\
+N_M \\ A_{M,1} \\ A_{M,2} \\ \\cdots \\ A_{M,C_M} \\ K_M\n\
+\\end{array}\n\
+\\]\n";
+    assert_eq!(result.tex, expected);
+}
