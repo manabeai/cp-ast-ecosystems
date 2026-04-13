@@ -266,7 +266,7 @@ fn e2e_n_plus_array_via_operations() {
 
     // ── Generate 5 samples & verify constraints ─────────────────────────
     for seed in 0..5 {
-        let sample = generate(&engine, seed);
+        let sample = generate(&engine, seed).unwrap();
 
         // N: Int in [1, 200_000]
         let n_val = match sample.values.get(&n_id) {

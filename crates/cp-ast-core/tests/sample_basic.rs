@@ -214,7 +214,7 @@ fn generate_range_within_bounds() {
 
     // Property test: run with many seeds, all values should be in [10, 20]
     for seed in 0..100 {
-        let sample = generate(&engine, seed);
+        let sample = generate(&engine, seed).unwrap();
         let value = sample.values.get(&n_id).expect("N should have a value");
         if let SampleValue::Int(v) = value {
             assert!(
@@ -232,7 +232,7 @@ fn generate_array_correct_length() {
     let engine = build_n_plus_array_engine();
 
     for seed in 0..20 {
-        let sample = generate(&engine, seed);
+        let sample = generate(&engine, seed).unwrap();
 
         let n_id = NodeId::from_raw(1);
         let a_id = NodeId::from_raw(2);
@@ -296,7 +296,7 @@ fn generate_distinct_all_unique() {
     );
 
     for seed in 0..50 {
-        let sample = generate(&engine, seed);
+        let sample = generate(&engine, seed).unwrap();
         let Some(SampleValue::Array(arr)) = sample.values.get(&a_id) else {
             panic!("A should be Array")
         };
@@ -362,7 +362,7 @@ fn generate_sorted_is_sorted() {
     );
 
     for seed in 0..30 {
-        let sample = generate(&engine, seed);
+        let sample = generate(&engine, seed).unwrap();
         let Some(SampleValue::Array(arr)) = sample.values.get(&a_id) else {
             panic!("A should be Array")
         };
@@ -387,7 +387,7 @@ fn generate_sorted_is_sorted() {
 #[test]
 fn sample_to_text_n_plus_array() {
     let engine = build_n_plus_array_engine();
-    let sample = generate(&engine, 42);
+    let sample = generate(&engine, 42).unwrap();
 
     let text = sample_to_text(&engine, &sample);
 
@@ -422,8 +422,8 @@ fn sample_to_text_n_plus_array() {
 fn generate_deterministic_with_same_seed() {
     let engine = build_n_plus_array_engine();
 
-    let sample1 = generate(&engine, 123);
-    let sample2 = generate(&engine, 123);
+    let sample1 = generate(&engine, 123).unwrap();
+    let sample2 = generate(&engine, 123).unwrap();
 
     // Same seed should produce identical results
     assert_eq!(sample1.values.len(), sample2.values.len());
@@ -463,7 +463,7 @@ fn generate_with_expression_bounds() {
         },
     );
 
-    let sample = generate(&engine, 99);
+    let sample = generate(&engine, 99).unwrap();
     let value = sample.values.get(&n_id).expect("N should have value");
     if let SampleValue::Int(v) = value {
         assert!(
@@ -476,7 +476,7 @@ fn generate_with_expression_bounds() {
 }
 
 #[test]
-fn generate_hole_produces_warning() {
+fn generate_hole_is_skipped() {
     let mut engine = AstEngine::new();
     let hole_id = engine.structure.add_node(NodeKind::Hole {
         expected_kind: Some(NodeKindHint::AnyArray),
@@ -488,10 +488,10 @@ fn generate_hole_produces_warning() {
         });
     }
 
-    let sample = generate(&engine, 0);
+    let sample = generate(&engine, 0).unwrap();
+    // Hole nodes are silently skipped — no value generated
     assert!(
-        sample.warnings.iter().any(|w| w.contains("Hole")),
-        "Should warn about hole nodes: {:?}",
-        sample.warnings
+        !sample.values.contains_key(&hole_id),
+        "Hole node should not have a generated value"
     );
 }

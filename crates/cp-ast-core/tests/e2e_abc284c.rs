@@ -209,7 +209,7 @@ fn e2e_abc284c_full_pipeline() {
 
     // ── Step 5: Generate 5 samples ──────────────────────────────────────
     for seed in 0..5 {
-        let sample = generate(&engine, seed);
+        let sample = generate(&engine, seed).unwrap();
 
         // N should be Int in [1, 100]
         let n_val = match sample.values.get(&n_id) {
@@ -373,7 +373,7 @@ fn e2e_abc300a_simple_arithmetic() {
 
     // ── Step 5: Generate 5 samples & verify ─────────────────────────────
     for seed in 0..5 {
-        let sample = generate(&engine, seed);
+        let sample = generate(&engine, seed).unwrap();
 
         // A in [1, 100]
         let a_val = match sample.values.get(&a_id) {
