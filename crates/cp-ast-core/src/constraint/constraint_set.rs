@@ -116,4 +116,40 @@ impl ConstraintSet {
             })
         })
     }
+
+    /// Returns the next ID that will be assigned.
+    #[must_use]
+    pub fn next_id(&self) -> u64 {
+        self.next_id
+    }
+
+    /// Returns a raw view of the arena including tombstone (`None`) slots.
+    #[must_use]
+    pub fn arena_raw(&self) -> &[Option<Constraint>] {
+        &self.arena
+    }
+
+    /// Returns the raw per-node constraint index.
+    #[must_use]
+    pub fn by_node_raw(&self) -> &[(NodeId, Vec<ConstraintId>)] {
+        &self.by_node
+    }
+
+    /// Reconstruct a `ConstraintSet` from raw parts.
+    ///
+    /// Used by deserialization layers for lossless arena restoration.
+    #[must_use]
+    pub fn from_raw_parts(
+        arena: Vec<Option<Constraint>>,
+        by_node: Vec<(NodeId, Vec<ConstraintId>)>,
+        global: Vec<ConstraintId>,
+        next_id: u64,
+    ) -> Self {
+        Self {
+            arena,
+            by_node,
+            global,
+            next_id,
+        }
+    }
 }

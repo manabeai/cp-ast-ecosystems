@@ -109,6 +109,27 @@ impl StructureAst {
     pub fn next_id(&self) -> u64 {
         self.next_id
     }
+
+    /// Returns a raw view of the arena including tombstone (`None`) slots.
+    ///
+    /// Used by serialization layers that need lossless arena snapshots.
+    #[must_use]
+    pub fn arena_raw(&self) -> &[Option<StructureNode>] {
+        &self.arena
+    }
+
+    /// Reconstruct a `StructureAst` from raw parts.
+    ///
+    /// Used by deserialization layers for lossless arena restoration.
+    /// The caller must ensure arena consistency (IDs match indices, etc.).
+    #[must_use]
+    pub fn from_raw_parts(root: NodeId, arena: Vec<Option<StructureNode>>, next_id: u64) -> Self {
+        Self {
+            root,
+            arena,
+            next_id,
+        }
+    }
 }
 
 impl Default for StructureAst {
