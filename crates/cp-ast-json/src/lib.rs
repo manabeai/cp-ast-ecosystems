@@ -6,9 +6,32 @@
 pub mod dto;
 pub mod error;
 mod from_dto;
-pub mod to_dto;
+mod to_dto;
 
 pub use dto::AstDocumentEnvelope;
 pub use error::ConversionError;
-pub use from_dto::envelope_to_engine;
-pub use to_dto::engine_to_envelope;
+
+use cp_ast_core::operation::AstEngine;
+
+/// Serialize an `AstEngine` to a JSON string.
+///
+/// Wraps in a versioned envelope with `schema_version`.
+///
+/// # Errors
+/// Returns `ConversionError::Json` if JSON serialization fails.
+pub fn serialize_ast(engine: &AstEngine) -> Result<String, ConversionError> {
+    let envelope = to_dto::engine_to_envelope(engine);
+    serde_json::to_string_pretty(&envelope).map_err(ConversionError::from)
+}
+
+/// Deserialize an `AstEngine` from a JSON string.
+///
+/// Validates schema version and arena consistency.
+///
+/// # Errors
+/// Returns `ConversionError` if JSON is invalid, version unsupported,
+/// or arena data is inconsistent.
+pub fn deserialize_ast(json: &str) -> Result<AstEngine, ConversionError> {
+    let envelope: AstDocumentEnvelope = serde_json::from_str(json)?;
+    from_dto::envelope_to_engine(envelope)
+}
