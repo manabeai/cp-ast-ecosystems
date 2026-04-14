@@ -6,7 +6,8 @@
 pub mod dto;
 pub mod error;
 mod from_dto;
-mod to_dto;
+pub mod to_dto;
 
 pub use dto::AstDocumentEnvelope;
 pub use error::ConversionError;
+pub use to_dto::engine_to_envelope;
