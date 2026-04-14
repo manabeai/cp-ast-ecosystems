@@ -10,4 +10,5 @@ pub mod to_dto;
 
 pub use dto::AstDocumentEnvelope;
 pub use error::ConversionError;
+pub use from_dto::envelope_to_engine;
 pub use to_dto::engine_to_envelope;
