@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "document": {
+    "structure": {
+      "root": "0",
+      "next_id": "3",
+      "arena": [
+        {
+          "id": "0",
+          "kind": {
+            "kind": "Sequence",
+            "children": [
+              "1",
+              "2"
+            ]
+          }
+        },
+        {
+          "id": "1",
+          "kind": {
+            "kind": "Scalar",
+            "name": "N"
+          }
+        },
+        {
+          "id": "2",
+          "kind": {
+            "kind": "Array",
+            "name": "A",
+            "length": {
+              "kind": "Var",
+              "reference": {
+                "kind": "VariableRef",
+                "node_id": "1"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "constraints": {
+      "next_id": "2",
+      "arena": [
+        {
+          "id": "0",
+          "constraint": {
+            "kind": "Range",
+            "target": {
+              "kind": "VariableRef",
+              "node_id": "1"
+            },
+            "lower": {
+              "kind": "Lit",
+              "value": 1
+            },
+            "upper": {
+              "kind": "Pow",
+              "base": {
+                "kind": "Lit",
+                "value": 10
+              },
+              "exp": {
+                "kind": "Lit",
+                "value": 5
+              }
+            }
+          }
+        },
+        {
+          "id": "1",
+          "constraint": {
+            "kind": "TypeDecl",
+            "target": {
+              "kind": "VariableRef",
+              "node_id": "1"
+            },
+            "expected": "Int"
+          }
+        }
+      ],
+      "by_node": [
+        {
+          "node_id": "1",
+          "constraints": [
+            "0",
+            "1"
+          ]
+        }
+      ],
+      "global": []
+    }
+  }
+}
