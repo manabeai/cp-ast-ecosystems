@@ -39,6 +39,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cp-ast-wasm"
+version = "0.1.0"
+dependencies = [
+ "cp-ast-core",
+ "cp-ast-json",
+ "cp-ast-tree",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
