@@ -8,4 +8,5 @@ pub mod error;
 mod from_dto;
 mod to_dto;
 
+pub use dto::AstDocumentEnvelope;
 pub use error::ConversionError;
