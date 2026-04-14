@@ -1,5 +1,7 @@
 import { StructurePane } from './StructurePane';
 import { ConstraintPane } from './ConstraintPane';
+import { PreviewPane } from './PreviewPane';
+import { Toolbar } from './Toolbar';
 
 export function ViewerPage() {
   return (
@@ -7,14 +9,9 @@ export function ViewerPage() {
       <div class="viewer-panes">
         <StructurePane />
         <ConstraintPane />
-        <div class="pane">
-          <div class="pane-header">
-            <span class="pane-title">Preview</span>
-          </div>
-          <pre class="pane-content">Preview pane — coming in Task 8</pre>
-        </div>
+        <PreviewPane />
       </div>
-      <div class="toolbar">Toolbar — coming in Task 8</div>
+      <Toolbar />
     </div>
   );
 }

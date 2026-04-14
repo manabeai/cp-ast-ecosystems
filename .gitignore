@@ -1,2 +1,7 @@
 target
 .codex
+
+# Web frontend build outputs
+web/wasm/
+web/node_modules/
+web/dist/
