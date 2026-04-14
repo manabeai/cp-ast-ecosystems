@@ -9,5 +9,8 @@ description = "Core AST types for competitive programming problem specification 
 [dependencies]
 rand = "0.8"
 
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+
 [lints]
 workspace = true
