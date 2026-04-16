@@ -4,15 +4,61 @@ use cp_ast_core::constraint::{
     ArithOp, CharSetSpec, Constraint, ConstraintId, ConstraintSet, DistinctUnit, ExpectedType,
     Expression, PropertyTag, RelationOp, RenderHintKind, Separator, SortOrder,
 };
-use cp_ast_core::operation::engine::AstEngine;
+use cp_ast_core::operation::{
+    engine::AstEngine,
+    error::{OperationError, ViolationDetail},
+    result::ApplyResult,
+    Action, ConstraintDef, ConstraintDefKind, FillContent, LengthSpec, SlotId, SumBoundDef,
+    VarType,
+};
+use cp_ast_core::projection::{
+    CompletenessInfo, ConstraintSummary, ConstraintTargetMenu, Diagnostic, DiagnosticLevel,
+    ExprCandidateMenu, FullProjection, HoleCandidate, NodeDetailProjection, OutlineNode,
+    ReferenceCandidate, SlotInfo,
+};
 use cp_ast_core::structure::{
     Ident, Literal, NodeId, NodeKind, NodeKindHint, Reference, StructureAst, StructureNode,
 };
 
 use crate::dto::{
-    AstDocumentDto, AstDocumentEnvelope, ByNodeEntryDto, CharSetSpecDto, ChoiceVariantDto,
-    ConstraintDto, ConstraintEntryDto, ConstraintSetDto, ExpressionDto, LiteralDto, NodeKindDto,
-    PropertyTagDto, ReferenceDto, RenderHintKindDto, StructureAstDto, StructureNodeDto,
+    ActionDto,
+    ApplyResultDto,
+    AstDocumentDto,
+    AstDocumentEnvelope,
+    ByNodeEntryDto,
+    CharSetSpecDto,
+    ChoiceVariantDto,
+    CompletenessInfoDto,
+    ConstraintDefDto,
+    ConstraintDefKindDto,
+    ConstraintDto,
+    ConstraintEntryDto,
+    ConstraintSetDto,
+    ConstraintSummaryDto,
+    ConstraintTargetMenuDto,
+    DiagnosticDto,
+    ExprCandidateMenuDto,
+    ExpressionDto,
+    FillContentDto,
+    // New DTOs
+    FullProjectionDto,
+    HoleCandidateDto,
+    LengthSpecDto,
+    LiteralDto,
+    NodeDetailProjectionDto,
+    NodeKindDto,
+    OperationErrorDto,
+    OutlineNodeDto,
+    PropertyTagDto,
+    ReferenceCandidateDto,
+    ReferenceDto,
+    RenderHintKindDto,
+    SlotIdDto,
+    SlotInfoDto,
+    StructureAstDto,
+    StructureNodeDto,
+    SumBoundDefDto,
+    ViolationDetailDto,
     CURRENT_SCHEMA_VERSION,
 };
 
@@ -362,5 +408,368 @@ fn render_hint_kind_to_dto(hint: &RenderHintKind) -> RenderHintKindDto {
         RenderHintKind::Separator(sep) => RenderHintKindDto::Separator {
             value: separator_str(*sep),
         },
+    }
+}
+
+// ── Editor Projection DTOs ──────────────────────────────────────────
+
+/// Convert a [`FullProjection`] to DTO.
+#[must_use]
+pub fn full_projection_to_dto(fp: &FullProjection) -> FullProjectionDto {
+    FullProjectionDto {
+        outline: fp.outline.iter().map(outline_node_to_dto).collect(),
+        diagnostics: fp.diagnostics.iter().map(diagnostic_to_dto).collect(),
+        completeness: completeness_info_to_dto(&fp.completeness),
+    }
+}
+
+fn outline_node_to_dto(node: &OutlineNode) -> OutlineNodeDto {
+    OutlineNodeDto {
+        id: node_id_str(node.id),
+        label: node.label.clone(),
+        kind_label: node.kind_label.clone(),
+        depth: node.depth,
+        is_hole: node.is_hole,
+        child_ids: node_ids_to_strings(&node.child_ids),
+    }
+}
+
+fn diagnostic_to_dto(diag: &Diagnostic) -> DiagnosticDto {
+    DiagnosticDto {
+        level: diagnostic_level_str(diag.level),
+        message: diag.message.clone(),
+        node_id: diag.node_id.map(node_id_str),
+        constraint_id: diag.constraint_id.map(constraint_id_str),
+    }
+}
+
+fn completeness_info_to_dto(info: &CompletenessInfo) -> CompletenessInfoDto {
+    CompletenessInfoDto {
+        total_holes: info.total_holes,
+        is_complete: info.is_complete,
+        missing_constraints: info.missing_constraints.clone(),
+    }
+}
+
+/// Convert a [`NodeDetailProjection`] to DTO.
+#[must_use]
+pub fn node_detail_to_dto(nd: &NodeDetailProjection) -> NodeDetailProjectionDto {
+    NodeDetailProjectionDto {
+        slots: nd.slots.iter().map(slot_info_to_dto).collect(),
+        related_constraints: nd
+            .related_constraints
+            .iter()
+            .map(constraint_summary_to_dto)
+            .collect(),
+    }
+}
+
+fn slot_info_to_dto(slot: &SlotInfo) -> SlotInfoDto {
+    SlotInfoDto {
+        kind: slot.kind.as_str().to_owned(),
+        current_expr: slot.current_expr.clone(),
+        is_editable: slot.is_editable,
+    }
+}
+
+fn constraint_summary_to_dto(summary: &ConstraintSummary) -> ConstraintSummaryDto {
+    ConstraintSummaryDto {
+        id: constraint_id_str(summary.id),
+        label: summary.label.clone(),
+        kind_label: summary.kind_label.clone(),
+    }
+}
+
+/// Convert hole candidates to DTO.
+#[must_use]
+pub fn hole_candidates_to_dto(candidates: &[HoleCandidate]) -> Vec<HoleCandidateDto> {
+    candidates.iter().map(hole_candidate_to_dto).collect()
+}
+
+fn hole_candidate_to_dto(candidate: &HoleCandidate) -> HoleCandidateDto {
+    HoleCandidateDto {
+        kind: candidate.kind.clone(),
+        suggested_names: candidate.suggested_names.clone(),
+    }
+}
+
+/// Convert expression candidate menu to DTO.
+#[must_use]
+pub fn expr_candidates_to_dto(menu: &ExprCandidateMenu) -> ExprCandidateMenuDto {
+    ExprCandidateMenuDto {
+        references: menu
+            .references
+            .iter()
+            .map(reference_candidate_to_dto)
+            .collect(),
+        literals: menu.literals.clone(),
+    }
+}
+
+fn reference_candidate_to_dto(candidate: &ReferenceCandidate) -> ReferenceCandidateDto {
+    ReferenceCandidateDto {
+        node_id: node_id_str(candidate.node_id),
+        label: candidate.label.clone(),
+    }
+}
+
+/// Convert constraint target menu to DTO.
+#[must_use]
+pub fn constraint_targets_to_dto(menu: &ConstraintTargetMenu) -> ConstraintTargetMenuDto {
+    ConstraintTargetMenuDto {
+        targets: menu
+            .targets
+            .iter()
+            .map(reference_candidate_to_dto)
+            .collect(),
+    }
+}
+
+// ── Action DTOs ─────────────────────────────────────────────────────
+
+/// Convert an [`Action`] to DTO.
+#[must_use]
+pub fn action_to_dto(action: &Action) -> ActionDto {
+    match action {
+        Action::FillHole { target, fill } => ActionDto::FillHole {
+            target: node_id_str(*target),
+            fill: fill_content_to_dto(fill),
+        },
+        Action::ReplaceNode {
+            target,
+            replacement,
+        } => ActionDto::ReplaceNode {
+            target: node_id_str(*target),
+            replacement: fill_content_to_dto(replacement),
+        },
+        Action::AddConstraint { target, constraint } => ActionDto::AddConstraint {
+            target: node_id_str(*target),
+            constraint: constraint_def_to_dto(constraint),
+        },
+        Action::RemoveConstraint { constraint_id } => ActionDto::RemoveConstraint {
+            constraint_id: constraint_id_str(*constraint_id),
+        },
+        Action::IntroduceMultiTestCase {
+            count_var_name,
+            sum_bound,
+        } => ActionDto::IntroduceMultiTestCase {
+            count_var_name: count_var_name.clone(),
+            sum_bound: sum_bound.as_ref().map(sum_bound_def_to_dto),
+        },
+        Action::AddSlotElement {
+            parent,
+            slot_name,
+            element,
+        } => ActionDto::AddSlotElement {
+            parent: node_id_str(*parent),
+            slot_name: slot_name.clone(),
+            element: fill_content_to_dto(element),
+        },
+        Action::RemoveSlotElement {
+            parent,
+            slot_name,
+            child,
+        } => ActionDto::RemoveSlotElement {
+            parent: node_id_str(*parent),
+            slot_name: slot_name.clone(),
+            child: node_id_str(*child),
+        },
+        Action::SetExpr { slot, expr } => ActionDto::SetExpr {
+            slot: slot_id_to_dto(slot),
+            expr: expr_to_dto(expr),
+        },
+    }
+}
+
+fn slot_id_to_dto(slot: &SlotId) -> SlotIdDto {
+    SlotIdDto {
+        owner: node_id_str(slot.owner),
+        kind: slot.kind.as_str().to_owned(),
+    }
+}
+
+fn fill_content_to_dto(fill: &FillContent) -> FillContentDto {
+    match fill {
+        FillContent::Scalar { name, typ } => FillContentDto::Scalar {
+            name: name.clone(),
+            typ: var_type_str(typ),
+        },
+        FillContent::Array {
+            name,
+            element_type,
+            length,
+        } => FillContentDto::Array {
+            name: name.clone(),
+            element_type: var_type_str(element_type),
+            length: length_spec_to_dto(length),
+        },
+        FillContent::Grid {
+            name,
+            rows,
+            cols,
+            cell_type,
+        } => FillContentDto::Grid {
+            name: name.clone(),
+            rows: length_spec_to_dto(rows),
+            cols: length_spec_to_dto(cols),
+            cell_type: var_type_str(cell_type),
+        },
+        FillContent::Section { label } => FillContentDto::Section {
+            label: label.clone(),
+        },
+        FillContent::OutputSingleValue { typ } => FillContentDto::OutputSingleValue {
+            typ: var_type_str(typ),
+        },
+        FillContent::OutputYesNo => FillContentDto::OutputYesNo,
+    }
+}
+
+fn length_spec_to_dto(spec: &LengthSpec) -> LengthSpecDto {
+    match spec {
+        LengthSpec::Fixed(value) => LengthSpecDto::Fixed { value: *value },
+        LengthSpec::RefVar(node_id) => LengthSpecDto::RefVar {
+            node_id: node_id_str(*node_id),
+        },
+        LengthSpec::Expr(value) => LengthSpecDto::Expr {
+            value: value.clone(),
+        },
+    }
+}
+
+fn constraint_def_to_dto(def: &ConstraintDef) -> ConstraintDefDto {
+    ConstraintDefDto {
+        kind: constraint_def_kind_to_dto(&def.kind),
+    }
+}
+
+fn constraint_def_kind_to_dto(kind: &ConstraintDefKind) -> ConstraintDefKindDto {
+    match kind {
+        ConstraintDefKind::Range { lower, upper } => ConstraintDefKindDto::Range {
+            lower: lower.clone(),
+            upper: upper.clone(),
+        },
+        ConstraintDefKind::TypeDecl { typ } => ConstraintDefKindDto::TypeDecl {
+            typ: var_type_str(typ),
+        },
+        ConstraintDefKind::Relation { op, rhs } => ConstraintDefKindDto::Relation {
+            op: relation_op_str(*op),
+            rhs: rhs.clone(),
+        },
+        ConstraintDefKind::Distinct => ConstraintDefKindDto::Distinct,
+        ConstraintDefKind::Sorted { order } => ConstraintDefKindDto::Sorted {
+            order: sort_order_str(*order),
+        },
+        ConstraintDefKind::Property { tag } => ConstraintDefKindDto::Property { tag: tag.clone() },
+        ConstraintDefKind::SumBound { over_var, upper } => ConstraintDefKindDto::SumBound {
+            over_var: over_var.clone(),
+            upper: upper.clone(),
+        },
+        ConstraintDefKind::Guarantee { description } => ConstraintDefKindDto::Guarantee {
+            description: description.clone(),
+        },
+    }
+}
+
+fn sum_bound_def_to_dto(def: &SumBoundDef) -> SumBoundDefDto {
+    SumBoundDefDto {
+        bound_var: def.bound_var.clone(),
+        upper: def.upper.clone(),
+    }
+}
+
+// ── OperationError DTOs ─────────────────────────────────────────────
+
+/// Convert an [`OperationError`] to DTO.
+#[must_use]
+pub fn operation_error_to_dto(err: &OperationError) -> OperationErrorDto {
+    match err {
+        OperationError::TypeMismatch {
+            expected,
+            actual,
+            context,
+        } => OperationErrorDto::TypeMismatch {
+            expected: expected.to_string(),
+            actual: actual.clone(),
+            context: context.clone(),
+        },
+        OperationError::NodeNotFound { node } => OperationErrorDto::NodeNotFound {
+            node_id: node_id_str(*node),
+        },
+        OperationError::SlotOccupied {
+            node,
+            current_occupant,
+        } => OperationErrorDto::SlotOccupied {
+            node_id: node_id_str(*node),
+            current_occupant: current_occupant.clone(),
+        },
+        OperationError::ConstraintViolation {
+            violated_constraints,
+        } => OperationErrorDto::ConstraintViolation {
+            violations: violated_constraints
+                .iter()
+                .map(violation_detail_to_dto)
+                .collect(),
+        },
+        OperationError::InvalidOperation { action, reason } => {
+            OperationErrorDto::InvalidOperation {
+                action: action.clone(),
+                reason: reason.clone(),
+            }
+        }
+        OperationError::InvalidFill { reason } => OperationErrorDto::InvalidFill {
+            reason: reason.clone(),
+        },
+        OperationError::DeserializationError { message } => {
+            OperationErrorDto::DeserializationError {
+                message: message.clone(),
+            }
+        }
+    }
+}
+
+fn violation_detail_to_dto(detail: &ViolationDetail) -> ViolationDetailDto {
+    ViolationDetailDto {
+        constraint_id: constraint_id_str(detail.constraint_id),
+        description: detail.description.clone(),
+        suggestion: detail.suggestion.clone(),
+    }
+}
+
+/// Convert an [`ApplyResult`] to DTO.
+#[must_use]
+pub fn apply_result_to_dto(result: &ApplyResult) -> ApplyResultDto {
+    ApplyResultDto {
+        created_nodes: node_ids_to_strings(&result.created_nodes),
+        removed_nodes: node_ids_to_strings(&result.removed_nodes),
+        created_constraints: result
+            .created_constraints
+            .iter()
+            .copied()
+            .map(constraint_id_str)
+            .collect(),
+        affected_constraints: result
+            .affected_constraints
+            .iter()
+            .copied()
+            .map(constraint_id_str)
+            .collect(),
+    }
+}
+
+// ── Additional Helper Functions ─────────────────────────────────────
+
+fn diagnostic_level_str(level: DiagnosticLevel) -> String {
+    match level {
+        DiagnosticLevel::Error => "error".to_owned(),
+        DiagnosticLevel::Warning => "warning".to_owned(),
+        DiagnosticLevel::Info => "info".to_owned(),
+    }
+}
+
+fn var_type_str(typ: &VarType) -> String {
+    match typ {
+        VarType::Int => "Int".to_owned(),
+        VarType::Str => "Str".to_owned(),
+        VarType::Char => "Char".to_owned(),
     }
 }

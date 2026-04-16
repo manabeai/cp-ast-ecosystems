@@ -263,3 +263,241 @@ pub enum CharSetSpecDto {
 pub enum RenderHintKindDto {
     Separator { value: String },
 }
+
+// ── Editor Projection ───────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FullProjectionDto {
+    pub outline: Vec<OutlineNodeDto>,
+    pub diagnostics: Vec<DiagnosticDto>,
+    pub completeness: CompletenessInfoDto,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OutlineNodeDto {
+    pub id: String,
+    pub label: String,
+    pub kind_label: String,
+    pub depth: usize,
+    pub is_hole: bool,
+    pub child_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiagnosticDto {
+    pub level: String, // "error", "warning", "info"
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub constraint_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompletenessInfoDto {
+    pub total_holes: usize,
+    pub is_complete: bool,
+    pub missing_constraints: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeDetailProjectionDto {
+    pub slots: Vec<SlotInfoDto>,
+    pub related_constraints: Vec<ConstraintSummaryDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlotInfoDto {
+    pub kind: String, // "ArrayLength", "RepeatCount", etc.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_expr: Option<String>,
+    pub is_editable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConstraintSummaryDto {
+    pub id: String,
+    pub label: String,
+    pub kind_label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HoleCandidateDto {
+    pub kind: String,
+    pub suggested_names: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExprCandidateMenuDto {
+    pub references: Vec<ReferenceCandidateDto>,
+    pub literals: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReferenceCandidateDto {
+    pub node_id: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConstraintTargetMenuDto {
+    pub targets: Vec<ReferenceCandidateDto>,
+}
+
+// ── SlotKind / SlotId ───────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlotIdDto {
+    pub owner: String,
+    pub kind: String, // "ArrayLength" etc.
+}
+
+// ── Action ──────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum ActionDto {
+    FillHole {
+        target: String,
+        fill: FillContentDto,
+    },
+    ReplaceNode {
+        target: String,
+        replacement: FillContentDto,
+    },
+    AddConstraint {
+        target: String,
+        constraint: ConstraintDefDto,
+    },
+    RemoveConstraint {
+        constraint_id: String,
+    },
+    IntroduceMultiTestCase {
+        count_var_name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        sum_bound: Option<SumBoundDefDto>,
+    },
+    AddSlotElement {
+        parent: String,
+        slot_name: String,
+        element: FillContentDto,
+    },
+    RemoveSlotElement {
+        parent: String,
+        slot_name: String,
+        child: String,
+    },
+    SetExpr {
+        slot: SlotIdDto,
+        expr: ExpressionDto,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum FillContentDto {
+    Scalar {
+        name: String,
+        typ: String,
+    },
+    Array {
+        name: String,
+        element_type: String,
+        length: LengthSpecDto,
+    },
+    Grid {
+        name: String,
+        rows: LengthSpecDto,
+        cols: LengthSpecDto,
+        cell_type: String,
+    },
+    Section {
+        label: String,
+    },
+    OutputSingleValue {
+        typ: String,
+    },
+    OutputYesNo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum LengthSpecDto {
+    Fixed { value: usize },
+    RefVar { node_id: String },
+    Expr { value: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConstraintDefDto {
+    pub kind: ConstraintDefKindDto,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum ConstraintDefKindDto {
+    Range { lower: String, upper: String },
+    TypeDecl { typ: String },
+    Relation { op: String, rhs: String },
+    Distinct,
+    Sorted { order: String },
+    Property { tag: String },
+    SumBound { over_var: String, upper: String },
+    Guarantee { description: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SumBoundDefDto {
+    pub bound_var: String,
+    pub upper: String,
+}
+
+// ── OperationError ──────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum OperationErrorDto {
+    TypeMismatch {
+        expected: String,
+        actual: String,
+        context: String,
+    },
+    NodeNotFound {
+        node_id: String,
+    },
+    SlotOccupied {
+        node_id: String,
+        current_occupant: String,
+    },
+    ConstraintViolation {
+        violations: Vec<ViolationDetailDto>,
+    },
+    InvalidOperation {
+        action: String,
+        reason: String,
+    },
+    InvalidFill {
+        reason: String,
+    },
+    DeserializationError {
+        message: String,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ViolationDetailDto {
+    pub constraint_id: String,
+    pub description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggestion: Option<String>,
+}
+
+// ── Operation Result ────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApplyResultDto {
+    pub created_nodes: Vec<String>,
+    pub removed_nodes: Vec<String>,
+    pub created_constraints: Vec<String>,
+    pub affected_constraints: Vec<String>,
+}

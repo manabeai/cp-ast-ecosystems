@@ -4,15 +4,36 @@ use cp_ast_core::constraint::{
     ArithOp, CharSetSpec, Constraint, ConstraintId, ConstraintSet, DistinctUnit, ExpectedType,
     Expression, PropertyTag, RelationOp, RenderHintKind, Separator, SortOrder,
 };
-use cp_ast_core::operation::engine::AstEngine;
+use cp_ast_core::operation::{
+    engine::AstEngine, Action, ConstraintDef, ConstraintDefKind, FillContent, LengthSpec, SlotId,
+    SlotKind, SumBoundDef, VarType,
+};
 use cp_ast_core::structure::{
     Ident, Literal, NodeId, NodeKind, NodeKindHint, Reference, StructureAst, StructureNode,
 };
 
 use crate::dto::{
-    AstDocumentEnvelope, CharSetSpecDto, ChoiceVariantDto, ConstraintDto, ConstraintSetDto,
-    ExpressionDto, LiteralDto, NodeKindDto, PropertyTagDto, ReferenceDto, RenderHintKindDto,
-    StructureAstDto, CURRENT_SCHEMA_VERSION,
+    // New DTOs for Action parsing
+    ActionDto,
+    AstDocumentEnvelope,
+    CharSetSpecDto,
+    ChoiceVariantDto,
+    ConstraintDefDto,
+    ConstraintDefKindDto,
+    ConstraintDto,
+    ConstraintSetDto,
+    ExpressionDto,
+    FillContentDto,
+    LengthSpecDto,
+    LiteralDto,
+    NodeKindDto,
+    PropertyTagDto,
+    ReferenceDto,
+    RenderHintKindDto,
+    SlotIdDto,
+    StructureAstDto,
+    SumBoundDefDto,
+    CURRENT_SCHEMA_VERSION,
 };
 use crate::error::ConversionError;
 
@@ -429,5 +450,180 @@ fn dto_to_literal(dto: LiteralDto) -> Literal {
     match dto {
         LiteralDto::IntLit { value } => Literal::IntLit(value),
         LiteralDto::StrLit { value } => Literal::StrLit(value),
+    }
+}
+
+// ── Action conversion ───────────────────────────────────────────────
+
+/// Convert an [`ActionDto`] to an [`Action`].
+pub fn action_from_dto(dto: ActionDto) -> Result<Action, ConversionError> {
+    match dto {
+        ActionDto::FillHole { target, fill } => Ok(Action::FillHole {
+            target: parse_node_id(&target)?,
+            fill: fill_content_from_dto(fill)?,
+        }),
+        ActionDto::ReplaceNode {
+            target,
+            replacement,
+        } => Ok(Action::ReplaceNode {
+            target: parse_node_id(&target)?,
+            replacement: fill_content_from_dto(replacement)?,
+        }),
+        ActionDto::AddConstraint { target, constraint } => Ok(Action::AddConstraint {
+            target: parse_node_id(&target)?,
+            constraint: constraint_def_from_dto(constraint)?,
+        }),
+        ActionDto::RemoveConstraint { constraint_id } => Ok(Action::RemoveConstraint {
+            constraint_id: parse_constraint_id(&constraint_id)?,
+        }),
+        ActionDto::IntroduceMultiTestCase {
+            count_var_name,
+            sum_bound,
+        } => Ok(Action::IntroduceMultiTestCase {
+            count_var_name,
+            sum_bound: sum_bound.map(sum_bound_def_from_dto),
+        }),
+        ActionDto::AddSlotElement {
+            parent,
+            slot_name,
+            element,
+        } => Ok(Action::AddSlotElement {
+            parent: parse_node_id(&parent)?,
+            slot_name,
+            element: fill_content_from_dto(element)?,
+        }),
+        ActionDto::RemoveSlotElement {
+            parent,
+            slot_name,
+            child,
+        } => Ok(Action::RemoveSlotElement {
+            parent: parse_node_id(&parent)?,
+            slot_name,
+            child: parse_node_id(&child)?,
+        }),
+        ActionDto::SetExpr { slot, expr } => Ok(Action::SetExpr {
+            slot: slot_id_from_dto(&slot)?,
+            expr: dto_to_expr(expr)?,
+        }),
+    }
+}
+
+fn slot_id_from_dto(dto: &SlotIdDto) -> Result<SlotId, ConversionError> {
+    Ok(SlotId {
+        owner: parse_node_id(&dto.owner)?,
+        kind: str_to_slot_kind(&dto.kind)?,
+    })
+}
+
+fn fill_content_from_dto(dto: FillContentDto) -> Result<FillContent, ConversionError> {
+    match dto {
+        FillContentDto::Scalar { name, typ } => Ok(FillContent::Scalar {
+            name,
+            typ: str_to_var_type(&typ)?,
+        }),
+        FillContentDto::Array {
+            name,
+            element_type,
+            length,
+        } => Ok(FillContent::Array {
+            name,
+            element_type: str_to_var_type(&element_type)?,
+            length: length_spec_from_dto(length)?,
+        }),
+        FillContentDto::Grid {
+            name,
+            rows,
+            cols,
+            cell_type,
+        } => Ok(FillContent::Grid {
+            name,
+            rows: length_spec_from_dto(rows)?,
+            cols: length_spec_from_dto(cols)?,
+            cell_type: str_to_var_type(&cell_type)?,
+        }),
+        FillContentDto::Section { label } => Ok(FillContent::Section { label }),
+        FillContentDto::OutputSingleValue { typ } => Ok(FillContent::OutputSingleValue {
+            typ: str_to_var_type(&typ)?,
+        }),
+        FillContentDto::OutputYesNo => Ok(FillContent::OutputYesNo),
+    }
+}
+
+fn length_spec_from_dto(dto: LengthSpecDto) -> Result<LengthSpec, ConversionError> {
+    match dto {
+        LengthSpecDto::Fixed { value } => Ok(LengthSpec::Fixed(value)),
+        LengthSpecDto::RefVar { node_id } => Ok(LengthSpec::RefVar(parse_node_id(&node_id)?)),
+        LengthSpecDto::Expr { value } => Ok(LengthSpec::Expr(value)),
+    }
+}
+
+fn constraint_def_from_dto(dto: ConstraintDefDto) -> Result<ConstraintDef, ConversionError> {
+    Ok(ConstraintDef {
+        kind: constraint_def_kind_from_dto(dto.kind)?,
+    })
+}
+
+fn constraint_def_kind_from_dto(
+    dto: ConstraintDefKindDto,
+) -> Result<ConstraintDefKind, ConversionError> {
+    match dto {
+        ConstraintDefKindDto::Range { lower, upper } => {
+            Ok(ConstraintDefKind::Range { lower, upper })
+        }
+        ConstraintDefKindDto::TypeDecl { typ } => Ok(ConstraintDefKind::TypeDecl {
+            typ: str_to_var_type(&typ)?,
+        }),
+        ConstraintDefKindDto::Relation { op, rhs } => Ok(ConstraintDefKind::Relation {
+            op: str_to_relation_op(&op)?,
+            rhs,
+        }),
+        ConstraintDefKindDto::Distinct => Ok(ConstraintDefKind::Distinct),
+        ConstraintDefKindDto::Sorted { order } => Ok(ConstraintDefKind::Sorted {
+            order: str_to_sort_order(&order)?,
+        }),
+        ConstraintDefKindDto::Property { tag } => Ok(ConstraintDefKind::Property { tag }),
+        ConstraintDefKindDto::SumBound { over_var, upper } => {
+            Ok(ConstraintDefKind::SumBound { over_var, upper })
+        }
+        ConstraintDefKindDto::Guarantee { description } => {
+            Ok(ConstraintDefKind::Guarantee { description })
+        }
+    }
+}
+
+fn sum_bound_def_from_dto(dto: SumBoundDefDto) -> SumBoundDef {
+    SumBoundDef {
+        bound_var: dto.bound_var,
+        upper: dto.upper,
+    }
+}
+
+// ── String to enum parsers ──────────────────────────────────────────
+
+fn str_to_slot_kind(s: &str) -> Result<SlotKind, ConversionError> {
+    match s {
+        "ArrayLength" => Ok(SlotKind::ArrayLength),
+        "RepeatCount" => Ok(SlotKind::RepeatCount),
+        "RangeLower" => Ok(SlotKind::RangeLower),
+        "RangeUpper" => Ok(SlotKind::RangeUpper),
+        "RelationLhs" => Ok(SlotKind::RelationLhs),
+        "RelationRhs" => Ok(SlotKind::RelationRhs),
+        "LengthLength" => Ok(SlotKind::LengthLength),
+        _ => Err(ConversionError::UnknownVariant {
+            type_name: "SlotKind",
+            value: s.to_owned(),
+        }),
+    }
+}
+
+fn str_to_var_type(s: &str) -> Result<VarType, ConversionError> {
+    match s {
+        "Int" => Ok(VarType::Int),
+        "Str" => Ok(VarType::Str),
+        "Char" => Ok(VarType::Char),
+        _ => Err(ConversionError::UnknownVariant {
+            type_name: "VarType",
+            value: s.to_owned(),
+        }),
     }
 }
