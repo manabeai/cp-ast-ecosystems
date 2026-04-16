@@ -1263,3 +1263,119 @@ body {
   color: var(--text-secondary);
   text-align: center;
 }
+
+/* ── Editor Page Styles ─────────────────────────────────────────────── */
+
+.editor-page { 
+  display: flex; 
+  flex-direction: column; 
+  height: 100%; 
+}
+
+.editor-main { 
+  display: grid; 
+  grid-template-columns: 250px 1fr 300px; 
+  flex: 1; 
+  overflow: hidden; 
+  gap: 1px; 
+  background: var(--border); 
+}
+
+/* ── Header Bar ─────────────────────────────────────────────────────── */
+
+.header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  min-height: 3rem;
+}
+
+.header-bar-left {
+  flex: 1;
+}
+
+.header-bar-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.header-bar-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 2;
+}
+
+.header-bar-right {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.completeness-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.completeness-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.completeness-indicator.complete {
+  background: #a6e3a1;
+  color: #1e1e2e;
+}
+
+.completeness-indicator.incomplete {
+  background: #f9e2af;
+  color: #1e1e2e;
+}
+
+.completeness-text {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.error-count {
+  color: #f38ba8;
+  font-weight: 500;
+}
+
+.completeness-bar {
+  width: 200px;
+  height: 4px;
+  background: var(--bg-surface);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.completeness-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f38ba8 0%, #f9e2af 50%, #a6e3a1 100%);
+  transition: width 0.3s ease;
+}
+
+.error-message {
+  color: #f38ba8;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(243, 139, 168, 0.1);
+  border: 1px solid rgba(243, 139, 168, 0.3);
+}

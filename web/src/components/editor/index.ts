@@ -1,3 +1,5 @@
+export { EditorPage } from './EditorPage';
+export { HeaderBar } from './HeaderBar';
 export { StructurePane } from './StructurePane';
 export { StructureNodeView } from './StructureNodeView';
 export { AddNodeMenu } from './AddNodeMenu';

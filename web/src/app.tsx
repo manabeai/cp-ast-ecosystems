@@ -1,6 +1,7 @@
 import { currentPage } from './state';
 import { ViewerPage } from './components/viewer/ViewerPage';
 import { PreviewPage } from './components/preview/PreviewPage';
+import { EditorPage } from './components/editor/EditorPage';
 
 export function App() {
   return (
@@ -31,6 +32,7 @@ export function App() {
       <main class="main">
         {currentPage.value === 'viewer' ? <ViewerPage /> :
          currentPage.value === 'preview' ? <PreviewPage /> :
+         currentPage.value === 'editor' ? <EditorPage /> :
          <div class="editor-placeholder">Editor (Coming Soon)</div>}
       </main>
     </div>
