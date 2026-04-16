@@ -12,12 +12,15 @@ import {
 
 // ── Page routing ────────────────────────────────────────────────────
 
-export const currentPage = signal<'viewer' | 'preview'>(
-  window.location.hash === '#/preview' ? 'preview' : 'viewer',
+export const currentPage = signal<'viewer' | 'preview' | 'editor'>(
+  window.location.hash === '#/preview' ? 'preview' :
+  window.location.hash === '#/editor' ? 'editor' : 'viewer',
 );
 
 window.addEventListener('hashchange', () => {
-  currentPage.value = window.location.hash === '#/preview' ? 'preview' : 'viewer';
+  const hash = window.location.hash;
+  currentPage.value = hash === '#/preview' ? 'preview' :
+    hash === '#/editor' ? 'editor' : 'viewer';
 });
 
 // ── Viewer state ────────────────────────────────────────────────────

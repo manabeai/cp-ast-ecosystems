@@ -358,6 +358,6 @@ mod editor_tests {
         assert_eq!(result, "null");
     }
 
-    // Note: test_project_node_detail_invalid_id cannot run in unit tests 
+    // Note: test_project_node_detail_invalid_id cannot run in unit tests
     // due to wasm_bindgen limitations. The function works correctly in wasm context.
 }

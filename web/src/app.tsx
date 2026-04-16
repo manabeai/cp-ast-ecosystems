@@ -20,10 +20,18 @@ export function App() {
           >
             Preview
           </a>
+          <a
+            href="#/editor"
+            class={`nav-link ${currentPage.value === 'editor' ? 'active' : ''}`}
+          >
+            Editor
+          </a>
         </nav>
       </header>
       <main class="main">
-        {currentPage.value === 'viewer' ? <ViewerPage /> : <PreviewPage />}
+        {currentPage.value === 'viewer' ? <ViewerPage /> :
+         currentPage.value === 'preview' ? <PreviewPage /> :
+         <div class="editor-placeholder">Editor (Coming Soon)</div>}
       </main>
     </div>
   );
