@@ -6,3 +6,7 @@ export { DetailPane } from './DetailPane';
 export { NodeInspector } from './NodeInspector';
 export { ExprSlotField } from './ExprSlotField';
 export { NameField } from './NameField';
+export { ConstraintPane } from './ConstraintPane';
+export { ConstraintCard } from './ConstraintCard';
+export { AddConstraintButton } from './AddConstraintButton';
+export { DraftConstraintPanel } from './DraftConstraintPanel';
