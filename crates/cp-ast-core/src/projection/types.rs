@@ -1,3 +1,5 @@
+use crate::constraint::ConstraintId;
+use crate::operation::SlotKind;
 use crate::structure::NodeId;
 
 /// A node projected for UI display with depth and metadata.
@@ -54,4 +56,98 @@ pub struct CompletenessSummary {
     pub filled_slots: usize,
     pub unsatisfied_constraints: usize,
     pub is_complete: bool,
+}
+
+/// Full projection of the AST for UI display.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FullProjection {
+    pub outline: Vec<OutlineNode>,
+    pub diagnostics: Vec<Diagnostic>,
+    pub completeness: CompletenessInfo,
+}
+
+/// A node in the outline view with rich metadata.
+#[derive(Debug, Clone, PartialEq)]
+pub struct OutlineNode {
+    pub id: NodeId,
+    pub label: String,
+    pub kind_label: String,
+    pub depth: usize,
+    pub is_hole: bool,
+    pub child_ids: Vec<NodeId>,
+}
+
+/// A diagnostic message for the UI.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Diagnostic {
+    pub level: DiagnosticLevel,
+    pub message: String,
+    pub node_id: Option<NodeId>,
+    pub constraint_id: Option<ConstraintId>,
+}
+
+/// Severity level for diagnostics.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiagnosticLevel {
+    Error,
+    Warning,
+    Info,
+}
+
+/// Summary of AST completeness.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CompletenessInfo {
+    pub total_holes: usize,
+    pub is_complete: bool,
+    pub missing_constraints: Vec<String>,
+}
+
+/// Detailed view of a node's expression slots and related constraints.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NodeDetailProjection {
+    pub slots: Vec<SlotInfo>,
+    pub related_constraints: Vec<ConstraintSummary>,
+}
+
+/// Information about an expression slot on a node.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SlotInfo {
+    pub kind: SlotKind,
+    pub current_expr: Option<String>,
+    pub is_editable: bool,
+}
+
+/// Summary of a constraint for display.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConstraintSummary {
+    pub id: ConstraintId,
+    pub label: String,
+    pub kind_label: String,
+}
+
+/// A candidate type for filling a hole.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HoleCandidate {
+    pub kind: String,
+    pub suggested_names: Vec<String>,
+}
+
+/// Menu of expression candidates.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExprCandidateMenu {
+    pub references: Vec<ReferenceCandidate>,
+    pub literals: Vec<i64>,
+}
+
+/// A candidate reference for expressions.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReferenceCandidate {
+    pub node_id: NodeId,
+    pub label: String,
+}
+
+/// Menu of constraint target nodes.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConstraintTargetMenu {
+    pub targets: Vec<ReferenceCandidate>,
 }
