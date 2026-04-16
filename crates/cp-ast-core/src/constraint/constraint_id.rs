@@ -1,3 +1,5 @@
+use std::fmt;
+
 /// Unique identifier for a constraint in the `ConstraintSet`.
 ///
 /// Used by `RemoveConstraint` and `ViolationDetail` for precise constraint addressing.
@@ -15,5 +17,11 @@ impl ConstraintId {
     #[must_use]
     pub fn value(self) -> u64 {
         self.0
+    }
+}
+
+impl fmt::Display for ConstraintId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
