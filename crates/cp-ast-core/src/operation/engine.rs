@@ -54,6 +54,10 @@ impl AstEngine {
                 count_var_name,
                 sum_bound,
             } => self.introduce_multi_test_case(count_var_name, sum_bound.as_ref()),
+            Action::SetExpr { slot: _, expr: _ } => {
+                // TODO: Implement SetExpr action
+                todo!("SetExpr action not implemented yet")
+            }
         }
     }
 

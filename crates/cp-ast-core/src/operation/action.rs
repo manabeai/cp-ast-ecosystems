@@ -1,3 +1,4 @@
+use super::slot_kind::SlotId;
 use super::types::{ConstraintDef, FillContent, SumBoundDef};
 use crate::constraint::ConstraintId;
 use crate::structure::NodeId;
@@ -37,5 +38,10 @@ pub enum Action {
         parent: NodeId,
         slot_name: String,
         child: NodeId,
+    },
+    /// Set an expression on a slot.
+    SetExpr {
+        slot: SlotId,
+        expr: crate::constraint::Expression,
     },
 }
