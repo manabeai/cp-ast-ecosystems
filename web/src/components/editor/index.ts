@@ -10,3 +10,7 @@ export { ConstraintPane } from './ConstraintPane';
 export { ConstraintCard } from './ConstraintCard';
 export { AddConstraintButton } from './AddConstraintButton';
 export { DraftConstraintPanel } from './DraftConstraintPanel';
+export { BottomPanel } from './BottomPanel';
+export { SamplePreview } from './SamplePreview';
+export { CanonicalPreview } from './CanonicalPreview';
+export { DiagnosticsPanel } from './DiagnosticsPanel';
