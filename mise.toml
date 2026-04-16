@@ -1,0 +1,58 @@
+[tools]
+# node = "lts"   # uncomment if you want mise to manage Node
+
+[tasks.dev]
+description = "Start frontend dev server (Vite)"
+run = "cd web && npm run dev"
+
+[tasks.build]
+description = "Build frontend (tsc + vite)"
+run = "cd web && npm run build"
+
+[tasks.test]
+description = "Run frontend E2E tests (Vitest, real wasm)"
+run = "cd web && npm test"
+
+[tasks."test:watch"]
+description = "Run frontend tests in watch mode"
+run = "cd web && npm run test:watch"
+
+[tasks."rust:build"]
+description = "Build all Rust crates"
+run = "cargo build --all-targets"
+
+[tasks."rust:test"]
+description = "Run all Rust tests"
+run = "cargo test --all-targets"
+
+[tasks."rust:check"]
+description = "Run cargo check (fast type check)"
+run = "cargo check --all-targets"
+
+[tasks."rust:lint"]
+description = "Run clippy with warnings-as-errors"
+run = "cargo clippy --all-targets --all-features -- -D warnings"
+
+[tasks."rust:fmt"]
+description = "Format all Rust code"
+run = "cargo fmt --all"
+
+[tasks."rust:fmt:check"]
+description = "Check Rust formatting without modifying"
+run = "cargo fmt --all -- --check"
+
+[tasks."wasm:build"]
+description = "Build cp-ast-wasm to web/wasm/ (wasm-pack)"
+run = "wasm-pack build crates/cp-ast-wasm --target web --out-dir ../../web/wasm"
+
+[tasks."wasm:build:debug"]
+description = "Build cp-ast-wasm in debug mode (faster compile)"
+run = "wasm-pack build crates/cp-ast-wasm --target web --out-dir ../../web/wasm --dev"
+
+[tasks.ci]
+description = "Run full CI: fmt check + clippy + rust tests + wasm build + frontend tests"
+depends = ["rust:fmt:check", "rust:lint", "rust:test", "wasm:build", "test"]
+
+[tasks."ci:fast"]
+description = "Quick CI: clippy + rust tests + frontend tests (skip wasm rebuild)"
+depends = ["rust:lint", "rust:test", "test"]
