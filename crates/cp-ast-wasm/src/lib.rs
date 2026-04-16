@@ -122,8 +122,9 @@ pub fn render_full_tex(document_json: &str) -> Result<String, JsError> {
 #[wasm_bindgen]
 pub fn generate_sample(document_json: &str, seed: u32) -> Result<String, JsError> {
     let engine = deserialize(document_json)?;
-    let sample = cp_ast_core::sample::generate(&engine, u64::from(seed))
-        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    let sample =
+        cp_ast_core::sample::generate_with_config(&engine, u64::from(seed), ui_sample_config())
+            .map_err(|e| JsError::new(&format!("{e:?}")))?;
     Ok(cp_ast_core::sample::sample_to_text(&engine, &sample))
 }
 
@@ -136,6 +137,15 @@ pub fn generate_sample(document_json: &str, seed: u32) -> Result<String, JsError
 #[must_use]
 pub fn list_presets() -> String {
     serde_json::to_string(&presets::list()).expect("preset list serialization should not fail")
+}
+
+/// UI-friendly config: small caps to keep samples fast and short in the browser.
+fn ui_sample_config() -> cp_ast_core::sample::GenerationConfig {
+    cp_ast_core::sample::GenerationConfig {
+        max_retries: 50,
+        max_repeat_count: 20,
+        max_string_length: 15,
+    }
 }
 
 /// Returns preset document JSON for the given name.

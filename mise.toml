@@ -49,6 +49,18 @@ run = "wasm-pack build crates/cp-ast-wasm --target web --out-dir ../../web/wasm"
 description = "Build cp-ast-wasm in debug mode (faster compile)"
 run = "wasm-pack build crates/cp-ast-wasm --target web --out-dir ../../web/wasm --dev"
 
+[tasks."test:e2e"]
+description = "Run Playwright E2E tests (requires mise run dev in another terminal)"
+run = "cd web && npm run e2e"
+
+[tasks."test:e2e:headed"]
+description = "Run Playwright E2E tests with visible browser"
+run = "cd web && npm run e2e:headed"
+
+[tasks."test:e2e:ui"]
+description = "Open Playwright UI mode"
+run = "cd web && npm run e2e:ui"
+
 [tasks.ci]
 description = "Run full CI: fmt check + clippy + rust tests + wasm build + frontend tests"
 depends = ["rust:fmt:check", "rust:lint", "rust:test", "wasm:build", "test"]

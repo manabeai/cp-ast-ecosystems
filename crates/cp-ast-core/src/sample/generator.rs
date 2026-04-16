@@ -71,6 +71,8 @@ pub struct GenerationConfig {
     pub max_retries: u32,
     /// Maximum repeat count before rejecting as too large.
     pub max_repeat_count: usize,
+    /// Maximum string length cap for sample generation (prevents huge outputs).
+    pub max_string_length: usize,
 }
 
 impl Default for GenerationConfig {
@@ -78,6 +80,7 @@ impl Default for GenerationConfig {
         Self {
             max_retries: 100,
             max_repeat_count: 500_000,
+            max_string_length: 20,
         }
     }
 }
@@ -333,8 +336,11 @@ impl<'a> GenerationContext<'a> {
                 let lo = self.evaluate(min)?;
                 let hi = self.evaluate(max)?;
                 let lo_usize = usize::try_from(lo.max(1)).unwrap_or(1);
-                let hi_usize = usize::try_from(hi.max(lo)).unwrap_or(10);
-                return Ok(self.rng.gen_range(lo_usize..=hi_usize));
+                let hi_usize = usize::try_from(hi.max(lo))
+                    .unwrap_or(10)
+                    .min(self.config.max_string_length);
+                let lo_capped = lo_usize.min(hi_usize);
+                return Ok(self.rng.gen_range(lo_capped..=hi_usize));
             }
         }
         Ok(self.rng.gen_range(1..=10))

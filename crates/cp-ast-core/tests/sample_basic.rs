@@ -715,6 +715,7 @@ fn generate_repeat_count_exceeds_limit() {
     let config = GenerationConfig {
         max_retries: 100,
         max_repeat_count: 10,
+        max_string_length: 20,
     };
     let result = generate_with_config(&engine, 42, config);
     assert!(result.is_err());
@@ -1185,6 +1186,7 @@ fn generate_deterministic_with_config() {
     let config = GenerationConfig {
         max_retries: 50,
         max_repeat_count: 1000,
+        max_string_length: 20,
     };
 
     let sample1 = generate_with_config(&engine, 42, config.clone()).unwrap();
