@@ -75,6 +75,17 @@ export class EditorPage {
   }
 
   /**
+   * High-level helper: add a scalar to the right of the current node (same line).
+   */
+  async addScalarRight(name: string, type: string = 'number'): Promise<void> {
+    await this.clickHotspot('right');
+    await this.selectPopupOption('scalar');
+    await this.selectType(type);
+    await this.inputName(name);
+    await this.confirm();
+  }
+
+  /**
    * High-level helper: add a horizontal array to the structure.
    */
   async addArray(

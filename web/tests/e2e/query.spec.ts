@@ -5,7 +5,7 @@
  * ユーザーフロー: doc/view/problem-user-flows.md §4
  *
  * テスト観点:
- * - 同一行 tuple (N, Q)
+ * - 同一行 scalar (N → hotspot right → Q)
  * - クエリ列テンプレート (count = Q)
  * - variant 追加 (3種)
  * - 各 variant の構造定義
@@ -23,14 +23,9 @@ test.describe('クエリ列: N Q / variant分岐', () => {
     await editor.goto();
   });
 
-  test('tuple [N, Q] を作成する', async () => {
-    await editor.clickHotspot('below');
-    await editor.selectPopupOption('tuple');
-    await editor.selectType('number');
-    await editor.inputName('N');
-    await editor.confirm();
-    await editor.inputName('Q');
-    await editor.confirm();
+  test('scalar N → hotspot right → scalar Q で同一行に配置する', async () => {
+    await editor.addScalar('N');
+    await editor.addScalarRight('Q');
 
     await expectStructureContains(editor, 'N');
     await expectStructureContains(editor, 'Q');
@@ -40,14 +35,9 @@ test.describe('クエリ列: N Q / variant分岐', () => {
   });
 
   test('クエリ列テンプレートを追加する', async () => {
-    // tuple [N, Q]
-    await editor.clickHotspot('below');
-    await editor.selectPopupOption('tuple');
-    await editor.selectType('number');
-    await editor.inputName('N');
-    await editor.confirm();
-    await editor.inputName('Q');
-    await editor.confirm();
+    // scalar N + Q
+    await editor.addScalar('N');
+    await editor.addScalarRight('Q');
 
     // クエリ列
     await editor.clickHotspot('below');
@@ -64,14 +54,9 @@ test.describe('クエリ列: N Q / variant分岐', () => {
   });
 
   test('variant を 3 つ追加する', async () => {
-    // setup: tuple + query list
-    await editor.clickHotspot('below');
-    await editor.selectPopupOption('tuple');
-    await editor.selectType('number');
-    await editor.inputName('N');
-    await editor.confirm();
-    await editor.inputName('Q');
-    await editor.confirm();
+    // setup: scalar N Q + query list
+    await editor.addScalar('N');
+    await editor.addScalarRight('Q');
 
     await editor.clickHotspot('below');
     await editor.selectPopupOption('query-list');
@@ -113,14 +98,9 @@ test.describe('クエリ列: N Q / variant分岐', () => {
   });
 
   test('完成状態: 制約を埋めて右ペイン検証', async () => {
-    // setup: 上記全ステップ (簡略化)
-    await editor.clickHotspot('below');
-    await editor.selectPopupOption('tuple');
-    await editor.selectType('number');
-    await editor.inputName('N');
-    await editor.confirm();
-    await editor.inputName('Q');
-    await editor.confirm();
+    // setup: scalar N Q + query list
+    await editor.addScalar('N');
+    await editor.addScalarRight('Q');
 
     await editor.clickHotspot('below');
     await editor.selectPopupOption('query-list');

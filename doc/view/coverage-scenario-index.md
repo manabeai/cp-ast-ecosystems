@@ -56,7 +56,7 @@ S_H
 - S_i は英小文字からなる長さ W の文字列
 
 **E2E で検証する操作**:
-- 同一行 tuple 作成（H, W）
+- 同一行 scalar 作成（H → hotspot right → W）
 - 文字グリッドテンプレート適用
 - |S_i| = W の自動生成
 - charset draft → 英小文字に設定
@@ -106,7 +106,7 @@ N Q
 - 各バリアントの変数に range 制約
 
 **E2E で検証する操作**:
-- 同一行 tuple 作成（N, Q）
+- 同一行 scalar 作成（N → hotspot right → Q）
 - クエリ列テンプレート適用（count = Q）
 - variant 3 つ追加（tag=1,2,3）
 - 各 variant の構造定義

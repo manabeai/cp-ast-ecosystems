@@ -124,13 +124,11 @@ S_H
 
 ### 操作順序
 
-#### Step 1: tuple [H, W] を追加
+#### Step 1: scalar H を追加 → 右に scalar W を追加
 
-1. insertion hotspot をクリック
-2. `tuple` を選択
-3. 1 つ目: 型 `number`、名前 `H`
-4. 2 つ目: 型 `number`、名前 `W`
-5. 確定
+1. insertion hotspot をクリック → `scalar` → `number` → `H` → 確定
+2. H の右の hotspot（insertion-hotspot-right）をクリック
+3. `scalar` → `number` → `W` → 確定
 
 **結果**:
 - Structure ペイン: `H W` が 1 行に表示される
@@ -278,9 +276,11 @@ N Q
 
 ### 操作順序
 
-#### Step 1: tuple [N, Q] を追加
+#### Step 1: scalar N を追加 → 右に scalar Q を追加
 
-1. hotspot → `tuple` → `number, N` + `number, Q` → 確定
+1. insertion hotspot → `scalar` → `number` → `N` → 確定
+2. N の右の hotspot（insertion-hotspot-right）をクリック
+3. `scalar` → `number` → `Q` → 確定
 
 **結果**:
 - Structure: `N Q`

@@ -5,7 +5,7 @@
  * ユーザーフロー: doc/view/problem-user-flows.md §2
  *
  * テスト観点:
- * - 同一行 tuple (H, W)
+ * - 同一行 scalar (H → hotspot right → W)
  * - 文字グリッドテンプレート
  * - |S_i| = W 自動生成
  * - charset draft
@@ -27,18 +27,9 @@ test.describe('グリッド: H W / S_1...S_H', () => {
     await editor.goto();
   });
 
-  test('tuple [H, W] を作成する', async () => {
-    await editor.clickHotspot('below');
-    await editor.selectPopupOption('tuple');
-
-    // H を追加
-    await editor.selectType('number');
-    await editor.inputName('H');
-    await editor.confirm();
-
-    // W を追加
-    await editor.inputName('W');
-    await editor.confirm();
+  test('scalar H → hotspot right → scalar W で同一行に配置する', async () => {
+    await editor.addScalar('H');
+    await editor.addScalarRight('W');
 
     // Structure ペインに H W が同一行に表示
     await expectStructureContains(editor, 'H');
@@ -50,14 +41,9 @@ test.describe('グリッド: H W / S_1...S_H', () => {
   });
 
   test('文字グリッドテンプレートを追加する', async () => {
-    // tuple 作成
-    await editor.clickHotspot('below');
-    await editor.selectPopupOption('tuple');
-    await editor.selectType('number');
-    await editor.inputName('H');
-    await editor.confirm();
-    await editor.inputName('W');
-    await editor.confirm();
+    // scalar H + W
+    await editor.addScalar('H');
+    await editor.addScalarRight('W');
 
     // グリッドテンプレート
     await editor.clickHotspot('below');
@@ -76,14 +62,9 @@ test.describe('グリッド: H W / S_1...S_H', () => {
   });
 
   test('charset を英小文字に設定する', async () => {
-    // setup: tuple + grid template
-    await editor.clickHotspot('below');
-    await editor.selectPopupOption('tuple');
-    await editor.selectType('number');
-    await editor.inputName('H');
-    await editor.confirm();
-    await editor.inputName('W');
-    await editor.confirm();
+    // setup: scalar H W + grid template
+    await editor.addScalar('H');
+    await editor.addScalarRight('W');
 
     await editor.clickHotspot('below');
     await editor.selectPopupOption('grid-template');
@@ -108,13 +89,8 @@ test.describe('グリッド: H W / S_1...S_H', () => {
 
   test('完成状態: グリッド + 制約 + 右ペイン検証', async () => {
     // Structure 構築
-    await editor.clickHotspot('below');
-    await editor.selectPopupOption('tuple');
-    await editor.selectType('number');
-    await editor.inputName('H');
-    await editor.confirm();
-    await editor.inputName('W');
-    await editor.confirm();
+    await editor.addScalar('H');
+    await editor.addScalarRight('W');
 
     await editor.clickHotspot('below');
     await editor.selectPopupOption('grid-template');
