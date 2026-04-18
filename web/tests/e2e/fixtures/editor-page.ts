@@ -59,6 +59,32 @@ export class EditorPage {
     await this.page.getByTestId('length-select').selectOption(varName);
   }
 
+  /**
+   * Build an expression by selecting a variable and applying an operation.
+   *
+   * Flow: click count field → select variable → click variable in expression
+   *       → select operation → enter operand → press Enter
+   *
+   * Example: buildCountExpression('N', 'subtract', '1') → N - 1
+   */
+  async buildCountExpression(
+    baseVar: string,
+    op: string,
+    operand: string,
+  ): Promise<void> {
+    // 1. Click the count field to open variable list
+    await this.page.getByTestId('count-field').click();
+    // 2. Select the base variable
+    await this.page.getByTestId(`count-var-option-${baseVar}`).click();
+    // 3. Click the variable element in the expression to open function popup
+    await this.page.getByTestId(`expression-element-${baseVar}`).click();
+    // 4. Select the operation (e.g., subtract, add, multiply, divide, min, max)
+    await this.page.getByTestId(`function-op-${op}`).click();
+    // 5. Enter the operand value and confirm
+    await this.page.getByTestId('function-operand-input').fill(operand);
+    await this.page.getByTestId('function-operand-input').press('Enter');
+  }
+
   async confirm(): Promise<void> {
     await this.page.getByTestId('confirm-button').click();
   }

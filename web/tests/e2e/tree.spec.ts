@@ -41,9 +41,8 @@ test.describe('木入力: N / u_1 v_1...u_{N-1} v_{N-1}', () => {
     // 辺リストテンプレート
     await editor.clickHotspot('below');
     await editor.selectPopupOption('edge-list');
-    // count = N - 1 の式入力
-    // 具体的な式入力 UI は実装時に確定
-    await editor.page.getByTestId('count-expression-input').fill('N - 1');
+    // count = N - 1: 変数 N を選択 → N をクリック → 関数 "-" → operand "1"
+    await editor.buildCountExpression('N', 'subtract', '1');
     await editor.confirm();
 
     // Structure ペインに辺リスト表示
@@ -61,7 +60,7 @@ test.describe('木入力: N / u_1 v_1...u_{N-1} v_{N-1}', () => {
 
     await editor.clickHotspot('below');
     await editor.selectPopupOption('edge-list');
-    await editor.page.getByTestId('count-expression-input').fill('N - 1');
+    await editor.buildCountExpression('N', 'subtract', '1');
     await editor.confirm();
 
     // Tree property を追加
@@ -78,7 +77,7 @@ test.describe('木入力: N / u_1 v_1...u_{N-1} v_{N-1}', () => {
     await editor.addScalar('N');
     await editor.clickHotspot('below');
     await editor.selectPopupOption('edge-list');
-    await editor.page.getByTestId('count-expression-input').fill('N - 1');
+    await editor.buildCountExpression('N', 'subtract', '1');
     await editor.confirm();
 
     // 制約を埋める
