@@ -59,6 +59,7 @@ impl AstEngine {
         })
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn expand_fill_content(
         &mut self,
         fill: &FillContent,
@@ -76,6 +77,9 @@ impl AstEngine {
                 }
             }
             FillContent::Grid {
+                name, rows, cols, ..
+            }
+            | FillContent::GridTemplate {
                 name, rows, cols, ..
             } => {
                 let rows_ref = length_spec_to_reference(rows);
@@ -100,6 +104,75 @@ impl AstEngine {
             FillContent::OutputSingleValue { .. } | FillContent::OutputYesNo => NodeKind::Scalar {
                 name: Ident::new("ans"),
             },
+            FillContent::EdgeList { edge_count } => {
+                let u = self.structure.add_node(NodeKind::Scalar {
+                    name: Ident::new("u"),
+                });
+                let v = self.structure.add_node(NodeKind::Scalar {
+                    name: Ident::new("v"),
+                });
+                let tuple = self.structure.add_node(NodeKind::Tuple {
+                    elements: vec![u, v],
+                });
+                created.push(u);
+                created.push(v);
+                created.push(tuple);
+                NodeKind::Repeat {
+                    count: length_spec_to_expression(edge_count),
+                    index_var: None,
+                    body: vec![tuple],
+                }
+            }
+            FillContent::WeightedEdgeList {
+                edge_count,
+                weight_name,
+                ..
+            } => {
+                let u = self.structure.add_node(NodeKind::Scalar {
+                    name: Ident::new("u"),
+                });
+                let v = self.structure.add_node(NodeKind::Scalar {
+                    name: Ident::new("v"),
+                });
+                let w = self.structure.add_node(NodeKind::Scalar {
+                    name: Ident::new(weight_name),
+                });
+                let tuple = self.structure.add_node(NodeKind::Tuple {
+                    elements: vec![u, v, w],
+                });
+                created.push(u);
+                created.push(v);
+                created.push(w);
+                created.push(tuple);
+                NodeKind::Repeat {
+                    count: length_spec_to_expression(edge_count),
+                    index_var: None,
+                    body: vec![tuple],
+                }
+            }
+            FillContent::QueryList { query_count } => {
+                let choice = self.structure.add_node(NodeKind::Choice {
+                    tag: Reference::Unresolved(Ident::new("type")),
+                    variants: vec![],
+                });
+                created.push(choice);
+                NodeKind::Repeat {
+                    count: length_spec_to_expression(query_count),
+                    index_var: None,
+                    body: vec![choice],
+                }
+            }
+            FillContent::MultiTestCaseTemplate { count } => {
+                let hole = self.structure.add_node(NodeKind::Hole {
+                    expected_kind: None,
+                });
+                created.push(hole);
+                NodeKind::Repeat {
+                    count: length_spec_to_expression(count),
+                    index_var: None,
+                    body: vec![hole],
+                }
+            }
         }
     }
 }
@@ -110,6 +183,10 @@ fn var_type_to_expected(fill: &FillContent) -> Option<ExpectedType> {
             Some(var_type_to_expected_type(typ))
         }
         FillContent::OutputYesNo => Some(ExpectedType::Str),
+        FillContent::WeightedEdgeList { weight_type, .. } => {
+            Some(var_type_to_expected_type(weight_type))
+        }
+        FillContent::GridTemplate { cell_type, .. } => Some(var_type_to_expected_type(cell_type)),
         _ => None,
     }
 }
