@@ -124,6 +124,10 @@ export function initEditor(): void {
   }
 }
 
+export function setDocumentJson(json: string): void {
+  documentJson.value = json;
+}
+
 export function dispatchAction(actionJson: string): void {
   try {
     documentJson.value = apply_action(documentJson.value, actionJson);

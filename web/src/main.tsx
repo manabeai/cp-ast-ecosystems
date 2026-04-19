@@ -1,14 +1,31 @@
 import { render } from 'preact';
 import { initWasm } from './wasm';
 import { loadPreset } from './state';
-import { initEditor } from './editor/editor-state';
+import { initEditor, setDocumentJson } from './editor/editor-state';
 import { App } from './app';
 import './index.css';
+
+function restoreStateFromUrl(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  const encoded = params.get('state');
+  if (!encoded) return false;
+
+  try {
+    const json = atob(decodeURIComponent(encoded));
+    setDocumentJson(json);
+    return true;
+  } catch (e) {
+    console.error('Failed to restore state from URL:', e);
+    return false;
+  }
+}
 
 async function main() {
   await initWasm();
   initEditor();
-  loadPreset('scalar_array');
+  if (!restoreStateFromUrl()) {
+    loadPreset('scalar_array');
+  }
   render(<App />, document.getElementById('app')!);
 }
 
