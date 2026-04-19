@@ -70,8 +70,12 @@ test.describe('基本配列: N + A_1...A_N', () => {
     await editor.addScalar('N');
     await editor.addArray('A', 'N');
 
-    // N の draft range を埋める
-    await editor.fillDraftRange(0, '1', '10^6');
+    // N の draft range を埋める: 1 <= N <= 10^6
+    await editor.openDraft(0);
+    await editor.fillBoundLiteral('lower', '1');
+    await editor.fillBoundLiteral('upper', '10');
+    await editor.applyBoundFunction('upper', 'power', '6');
+    await editor.confirmConstraint();
 
     // completed constraint が 1 つ表示
     const completed = editor.getCompletedConstraints();
@@ -87,8 +91,19 @@ test.describe('基本配列: N + A_1...A_N', () => {
     await editor.addArray('A', 'N');
 
     // 全制約を埋める
-    await editor.fillDraftRange(0, '1', '10^6');
-    await editor.fillDraftRange(0, '1', '10^9'); // index 0: 残った draft が繰り上がる
+    // N: 1 <= N <= 10^6
+    await editor.openDraft(0);
+    await editor.fillBoundLiteral('lower', '1');
+    await editor.fillBoundLiteral('upper', '10');
+    await editor.applyBoundFunction('upper', 'power', '6');
+    await editor.confirmConstraint();
+
+    // A_i: 1 <= A_i <= 10^9 (index 0: 残った draft が繰り上がる)
+    await editor.openDraft(0);
+    await editor.fillBoundLiteral('lower', '1');
+    await editor.fillBoundLiteral('upper', '10');
+    await editor.applyBoundFunction('upper', 'power', '9');
+    await editor.confirmConstraint();
 
     // draft が全て消えている
     const drafts = editor.getDraftConstraints();

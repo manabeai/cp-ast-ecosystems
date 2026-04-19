@@ -110,8 +110,19 @@ test.describe('クエリ列: N Q / variant分岐', () => {
     // variant 追加は省略（上記テストでカバー）
 
     // 制約を埋める
-    await editor.fillDraftRange(0, '1', '2 * 10^5'); // N
-    await editor.fillDraftRange(0, '1', '2 * 10^5'); // Q
+    // N: 1 <= N <= 2×10^5
+    await editor.openDraft(0);
+    await editor.fillBoundLiteral('lower', '1');
+    await editor.fillBoundLiteral('upper', '2');
+    await editor.applyBoundFunction('upper', 'multiply', '100000');
+    await editor.confirmConstraint();
+
+    // Q: 1 <= Q <= 2×10^5
+    await editor.openDraft(0);
+    await editor.fillBoundLiteral('lower', '1');
+    await editor.fillBoundLiteral('upper', '2');
+    await editor.applyBoundFunction('upper', 'multiply', '100000');
+    await editor.confirmConstraint();
 
     // 右ペイン TeX 制約が表示される
     await expect(editor.getTexConstraints()).not.toBeEmpty();

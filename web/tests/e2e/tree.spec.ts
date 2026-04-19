@@ -81,9 +81,24 @@ test.describe('木入力: N / u_1 v_1...u_{N-1} v_{N-1}', () => {
     await editor.confirm();
 
     // 制約を埋める
-    await editor.fillDraftRange(0, '2', '2 * 10^5'); // N
-    await editor.fillDraftRange(0, '1', 'N'); // u_i
-    await editor.fillDraftRange(0, '1', 'N'); // v_i
+    // N: 2 <= N <= 2×10^5
+    await editor.openDraft(0);
+    await editor.fillBoundLiteral('lower', '2');
+    await editor.fillBoundLiteral('upper', '2');
+    await editor.applyBoundFunction('upper', 'multiply', '100000');
+    await editor.confirmConstraint();
+
+    // u_i: 1 <= u_i <= N (上限は変数参照)
+    await editor.openDraft(0);
+    await editor.fillBoundLiteral('lower', '1');
+    await editor.fillBoundVar('upper', 'N');
+    await editor.confirmConstraint();
+
+    // v_i: 1 <= v_i <= N
+    await editor.openDraft(0);
+    await editor.fillBoundLiteral('lower', '1');
+    await editor.fillBoundVar('upper', 'N');
+    await editor.confirmConstraint();
 
     // Tree property
     await editor.addProperty('tree');

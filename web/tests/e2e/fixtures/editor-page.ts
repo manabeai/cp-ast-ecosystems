@@ -137,15 +137,59 @@ export class EditorPage {
     return this.constraintPane.getByTestId(/^completed-constraint/);
   }
 
-  async fillDraftRange(
-    index: number,
-    lower: string,
-    upper: string,
+  /**
+   * Open a draft constraint for editing.
+   */
+  async openDraft(index: number): Promise<void> {
+    await this.page.getByTestId(`draft-constraint-${index}`).click();
+  }
+
+  /**
+   * Enter a literal positive integer into a constraint bound.
+   * Click the bound area → free integer input → Enter.
+   */
+  async fillBoundLiteral(
+    bound: 'lower' | 'upper',
+    value: string,
   ): Promise<void> {
-    const draft = this.page.getByTestId(`draft-constraint-${index}`);
-    await draft.click();
-    await this.page.getByTestId('constraint-lower-input').fill(lower);
-    await this.page.getByTestId('constraint-upper-input').fill(upper);
+    await this.page.getByTestId(`constraint-${bound}-input`).click();
+    await this.page.getByTestId('constraint-value-literal').fill(value);
+    await this.page.getByTestId('constraint-value-literal').press('Enter');
+  }
+
+  /**
+   * Select a variable reference for a constraint bound.
+   * Click the bound area → select variable from popup list.
+   */
+  async fillBoundVar(
+    bound: 'lower' | 'upper',
+    varName: string,
+  ): Promise<void> {
+    await this.page.getByTestId(`constraint-${bound}-input`).click();
+    await this.page.getByTestId(`constraint-var-option-${varName}`).click();
+  }
+
+  /**
+   * Apply a function to the current expression element in a constraint bound.
+   * Click the expression element → function popup → select op → enter operand.
+   *
+   * The operand must be a positive integer (free input).
+   */
+  async applyBoundFunction(
+    bound: 'lower' | 'upper',
+    op: string,
+    operand: string,
+  ): Promise<void> {
+    await this.page.getByTestId(`constraint-${bound}-expression`).click();
+    await this.page.getByTestId(`function-op-${op}`).click();
+    await this.page.getByTestId('function-operand-input').fill(operand);
+    await this.page.getByTestId('function-operand-input').press('Enter');
+  }
+
+  /**
+   * Confirm the current constraint editing.
+   */
+  async confirmConstraint(): Promise<void> {
     await this.page.getByTestId('constraint-confirm').click();
   }
 
@@ -154,10 +198,38 @@ export class EditorPage {
     await this.page.getByTestId(`property-option-${propertyName}`).click();
   }
 
+  /**
+   * Add a SumBound constraint.
+   * The upper bound uses the same structured value input as constraint bounds.
+   */
   async addSumBound(varName: string, upper: string): Promise<void> {
     await this.page.getByTestId('sumbound-shortcut').click();
     await this.page.getByTestId('sumbound-var-select').selectOption(varName);
-    await this.page.getByTestId('sumbound-upper-input').fill(upper);
+    await this.page.getByTestId('sumbound-upper-input').click();
+    await this.page.getByTestId('constraint-value-literal').fill(upper);
+    await this.page.getByTestId('constraint-value-literal').press('Enter');
+    await this.page.getByTestId('constraint-confirm').click();
+  }
+
+  /**
+   * Add a SumBound constraint with an expression upper bound (e.g., 2 * 10^5).
+   */
+  async addSumBoundExpression(
+    varName: string,
+    baseValue: string,
+    op: string,
+    operand: string,
+  ): Promise<void> {
+    await this.page.getByTestId('sumbound-shortcut').click();
+    await this.page.getByTestId('sumbound-var-select').selectOption(varName);
+    await this.page.getByTestId('sumbound-upper-input').click();
+    await this.page.getByTestId('constraint-value-literal').fill(baseValue);
+    await this.page.getByTestId('constraint-value-literal').press('Enter');
+    // Apply function to the upper bound expression
+    await this.page.getByTestId('sumbound-upper-expression').click();
+    await this.page.getByTestId(`function-op-${op}`).click();
+    await this.page.getByTestId('function-operand-input').fill(operand);
+    await this.page.getByTestId('function-operand-input').press('Enter');
     await this.page.getByTestId('constraint-confirm').click();
   }
 

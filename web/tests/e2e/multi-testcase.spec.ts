@@ -130,12 +130,29 @@ test.describe('複数テストケース: T / (N / A) x T', () => {
     await editor.confirm();
 
     // 制約を埋める
-    await editor.fillDraftRange(0, '1', '10^5'); // T
-    await editor.fillDraftRange(0, '1', '2 * 10^5'); // N
-    await editor.fillDraftRange(0, '1', '10^9'); // A_i
+    // T: 1 <= T <= 10^5
+    await editor.openDraft(0);
+    await editor.fillBoundLiteral('lower', '1');
+    await editor.fillBoundLiteral('upper', '10');
+    await editor.applyBoundFunction('upper', 'power', '5');
+    await editor.confirmConstraint();
 
-    // SumBound
-    await editor.addSumBound('N', '2 * 10^5');
+    // N: 1 <= N <= 2×10^5
+    await editor.openDraft(0);
+    await editor.fillBoundLiteral('lower', '1');
+    await editor.fillBoundLiteral('upper', '2');
+    await editor.applyBoundFunction('upper', 'multiply', '100000');
+    await editor.confirmConstraint();
+
+    // A_i: 1 <= A_i <= 10^9
+    await editor.openDraft(0);
+    await editor.fillBoundLiteral('lower', '1');
+    await editor.fillBoundLiteral('upper', '10');
+    await editor.applyBoundFunction('upper', 'power', '9');
+    await editor.confirmConstraint();
+
+    // SumBound: Σ N <= 2×10^5
+    await editor.addSumBoundExpression('N', '2', 'multiply', '100000');
 
     // 右ペイン TeX
     await expect(editor.getTexInputFormat()).not.toBeEmpty();
