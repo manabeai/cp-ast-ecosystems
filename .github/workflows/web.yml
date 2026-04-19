@@ -11,6 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Build WASM
+        run: wasm-pack build crates/cp-ast-wasm --target web --out-dir ../../web/wasm
       - uses: actions/setup-node@v4
         with:
           node-version: 20
