@@ -5,3 +5,4 @@ target
 web/wasm/
 web/node_modules/
 web/dist/
+.superpowers/
