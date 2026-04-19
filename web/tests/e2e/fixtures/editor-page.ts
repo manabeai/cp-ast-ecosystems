@@ -261,6 +261,8 @@ export class EditorPage {
   /**
    * High-level helper: add a weighted edge list template.
    * Uses the weighted-edge-list popup option with count variable and weight name.
+   * Unlike tree edge-list which uses buildCountExpression('N','subtract','1'),
+   * graph patterns use selectLength directly since edge count M is a simple variable.
    */
   async addWeightedEdgeList(
     countVar: string,
@@ -270,7 +272,7 @@ export class EditorPage {
     await this.clickHotspot('below');
     await this.selectPopupOption('weighted-edge-list');
     await this.selectLength(countVar);
-    await this.inputName(weightName);
+    await this.page.getByTestId('weight-name-input').fill(weightName);
     await this.selectType(weightType);
     await this.confirm();
   }
