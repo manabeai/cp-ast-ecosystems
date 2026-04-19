@@ -3,8 +3,8 @@ use super::error::OperationError;
 use super::result::ApplyResult;
 use super::types::{ConstraintDef, ConstraintDefKind, VarType};
 use crate::constraint::Expression;
-use crate::constraint::{Constraint, ConstraintId, ExpectedType};
-use crate::structure::{Ident, NodeId, Reference};
+use crate::constraint::{CharSetSpec, Constraint, ConstraintId, ExpectedType};
+use crate::structure::{Ident, NodeId, NodeKind, Reference, StructureAst};
 
 impl AstEngine {
     /// Add a constraint to a node.
@@ -22,9 +22,12 @@ impl AstEngine {
         }
 
         // 2. Convert ConstraintDefKind → Constraint
-        let constraint = convert_def_to_constraint(target, &constraint_def.kind);
+        let mut constraint = convert_def_to_constraint(target, &constraint_def.kind);
 
-        // 3. Add to ConstraintSet
+        // 3. Resolve any Unresolved variable names against the structure
+        resolve_constraint_references(&self.structure, &mut constraint);
+
+        // 4. Add to ConstraintSet
         let cid = self.constraints.add(Some(target), constraint);
 
         Ok(ApplyResult {
@@ -100,6 +103,10 @@ fn convert_def_to_constraint(target: NodeId, kind: &ConstraintDefKind) -> Constr
             variable: target_ref,
             upper: parse_expression(upper),
         },
+        ConstraintDefKind::CharSet { spec } => Constraint::CharSet {
+            target: target_ref,
+            charset: parse_charset_spec(spec),
+        },
         ConstraintDefKind::Guarantee { description } => Constraint::Guarantee {
             description: description.clone(),
             predicate: None,
@@ -113,5 +120,85 @@ pub(super) fn parse_expression(s: &str) -> Expression {
         Expression::Lit(n)
     } else {
         Expression::Var(Reference::Unresolved(Ident::new(s)))
+    }
+}
+
+// ── Reference resolution ───────────────────────────────────────────
+
+/// Resolve `Unresolved` variable names in a constraint against the structure.
+fn resolve_constraint_references(structure: &StructureAst, constraint: &mut Constraint) {
+    match constraint {
+        Constraint::Range { lower, upper, .. } => {
+            resolve_expression_references(structure, lower);
+            resolve_expression_references(structure, upper);
+        }
+        Constraint::SumBound { upper, .. } => {
+            resolve_expression_references(structure, upper);
+        }
+        Constraint::Relation { lhs, rhs, .. } => {
+            resolve_expression_references(structure, lhs);
+            resolve_expression_references(structure, rhs);
+        }
+        _ => {}
+    }
+}
+
+/// Recursively resolve `Unresolved` variable names in an expression.
+fn resolve_expression_references(structure: &StructureAst, expr: &mut Expression) {
+    match expr {
+        Expression::Var(Reference::Unresolved(name)) => {
+            if let Some(node_id) = find_node_by_name(structure, name.as_str()) {
+                *expr = Expression::Var(Reference::VariableRef(node_id));
+            }
+        }
+        Expression::BinOp { lhs, rhs, .. } => {
+            resolve_expression_references(structure, lhs);
+            resolve_expression_references(structure, rhs);
+        }
+        Expression::Pow { base, exp } => {
+            resolve_expression_references(structure, base);
+            resolve_expression_references(structure, exp);
+        }
+        Expression::FnCall { args, .. } => {
+            for arg in args {
+                resolve_expression_references(structure, arg);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Find a structure node by its variable name (Scalar, Array, or Matrix).
+fn find_node_by_name(structure: &StructureAst, name: &str) -> Option<NodeId> {
+    for node in structure.iter() {
+        let node_name = match node.kind() {
+            NodeKind::Scalar { name }
+            | NodeKind::Array { name, .. }
+            | NodeKind::Matrix { name, .. } => Some(name.as_str()),
+            _ => None,
+        };
+        if node_name == Some(name) {
+            return Some(node.id());
+        }
+    }
+    None
+}
+
+/// Parse a charset spec string into `CharSetSpec`.
+fn parse_charset_spec(spec: &str) -> CharSetSpec {
+    match spec {
+        "LowerAlpha" => CharSetSpec::LowerAlpha,
+        "UpperAlpha" => CharSetSpec::UpperAlpha,
+        "Alpha" => CharSetSpec::Alpha,
+        "Digit" => CharSetSpec::Digit,
+        "AlphaNumeric" => CharSetSpec::AlphaNumeric,
+        _ => {
+            // Handle "Custom:abc" format from frontend
+            if let Some(chars) = spec.strip_prefix("Custom:") {
+                CharSetSpec::Custom(chars.chars().collect())
+            } else {
+                CharSetSpec::Custom(spec.chars().collect())
+            }
+        }
     }
 }

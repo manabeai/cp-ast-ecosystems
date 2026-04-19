@@ -715,6 +715,7 @@ fn generate_repeat_count_exceeds_limit() {
     let config = GenerationConfig {
         max_retries: 100,
         max_repeat_count: 10,
+        ..Default::default()
     };
     let result = generate_with_config(&engine, 42, config);
     assert!(result.is_err());
@@ -1185,6 +1186,7 @@ fn generate_deterministic_with_config() {
     let config = GenerationConfig {
         max_retries: 50,
         max_repeat_count: 1000,
+        ..Default::default()
     };
 
     let sample1 = generate_with_config(&engine, 42, config.clone()).unwrap();
@@ -1659,4 +1661,249 @@ fn choice_in_repeat_generates_independently() {
     }
     assert!(saw_variant1, "should see at least one variant 1");
     assert!(saw_variant2, "should see at least one variant 2");
+}
+
+/// Test for cross-variable constraint dependencies: `1 ≤ n ≤ 4`, `1 ≤ A ≤ 10^n`
+#[test]
+fn generate_cross_variable_constraint_pow() {
+    let mut engine = AstEngine::new();
+
+    // Create scalar n
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("n"),
+    });
+
+    // Create array A with length = n
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Expression::Var(Reference::VariableRef(n_id)),
+    });
+
+    // Set up structure: root -> sequence[n, A]
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, a_id],
+        });
+    }
+
+    // n: Int, 1 ≤ n ≤ 4
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(n_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(4),
+        },
+    );
+
+    // A elements: Int, 1 ≤ A_i ≤ 10^n (cross-variable constraint)
+    engine.constraints.add(
+        Some(a_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(a_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(a_id),
+        Constraint::Range {
+            target: Reference::IndexedRef {
+                target: a_id,
+                indices: vec![Ident::new("i")],
+            },
+            lower: Expression::Lit(1),
+            // upper = 10^n (references n)
+            upper: Expression::Pow {
+                base: Box::new(Expression::Lit(10)),
+                exp: Box::new(Expression::Var(Reference::VariableRef(n_id))),
+            },
+        },
+    );
+
+    // Generate samples with multiple seeds to ensure it doesn't fail
+    for seed in 0..20 {
+        let sample = generate(&engine, seed).expect("should generate successfully");
+
+        // Verify n is in valid range
+        let n_val = match sample.values.get(&n_id) {
+            Some(SampleValue::Int(v)) => *v,
+            _ => panic!("seed {seed}: n should be Int"),
+        };
+        assert!(
+            (1..=4).contains(&n_val),
+            "seed {seed}: n={n_val} should be in [1, 4]"
+        );
+
+        // Verify A elements are in valid range [1, 10^n]
+        let max_a = 10_i64.pow(u32::try_from(n_val).unwrap());
+        let Some(SampleValue::Array(a_val)) = sample.values.get(&a_id) else {
+            panic!("seed {seed}: A should be Array")
+        };
+
+        for (i, elem) in a_val.iter().enumerate() {
+            if let SampleValue::Int(v) = elem {
+                assert!(
+                    (1..=max_a).contains(v),
+                    "seed {seed}: A[{i}]={v} should be in [1, {max_a}]"
+                );
+            } else {
+                panic!("seed {seed}: A[{i}] should be Int");
+            }
+        }
+    }
+}
+
+/// Test for cross-variable constraint dependencies: `1 ≤ N ≤ 100`, `1 ≤ A ≤ N`
+#[test]
+fn generate_cross_variable_constraint_simple() {
+    let mut engine = AstEngine::new();
+
+    // Create scalar N
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+
+    // Create array A with length = N
+    let a_id = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: Expression::Var(Reference::VariableRef(n_id)),
+    });
+
+    // Set up structure: root -> sequence[N, A]
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, a_id],
+        });
+    }
+
+    // N: Int, 1 ≤ N ≤ 100
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(n_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(n_id),
+        Constraint::Range {
+            target: Reference::VariableRef(n_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Lit(100),
+        },
+    );
+
+    // A elements: Int, 1 ≤ A_i ≤ N (cross-variable constraint)
+    engine.constraints.add(
+        Some(a_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(a_id),
+            expected: ExpectedType::Int,
+        },
+    );
+    engine.constraints.add(
+        Some(a_id),
+        Constraint::Range {
+            target: Reference::IndexedRef {
+                target: a_id,
+                indices: vec![Ident::new("i")],
+            },
+            lower: Expression::Lit(1),
+            // upper = N (references N)
+            upper: Expression::Var(Reference::VariableRef(n_id)),
+        },
+    );
+
+    // Generate samples with multiple seeds to ensure it doesn't fail
+    for seed in 0..20 {
+        let sample = generate(&engine, seed).expect("should generate successfully");
+
+        // Verify N is in valid range
+        let n_val = match sample.values.get(&n_id) {
+            Some(SampleValue::Int(v)) => *v,
+            _ => panic!("seed {seed}: N should be Int"),
+        };
+        assert!(
+            (1..=100).contains(&n_val),
+            "seed {seed}: N={n_val} should be in [1, 100]"
+        );
+
+        // Verify A elements are in valid range [1, N]
+        let Some(SampleValue::Array(a_val)) = sample.values.get(&a_id) else {
+            panic!("seed {seed}: A should be Array")
+        };
+
+        for (i, elem) in a_val.iter().enumerate() {
+            if let SampleValue::Int(v) = elem {
+                assert!(
+                    (1..=n_val).contains(v),
+                    "seed {seed}: A[{i}]={v} should be in [1, {n_val}]"
+                );
+            } else {
+                panic!("seed {seed}: A[{i}] should be Int");
+            }
+        }
+    }
+}
+
+/// Test that constraint dependencies are correctly added to the dependency graph
+#[test]
+fn dependency_graph_includes_constraint_refs() {
+    let mut engine = AstEngine::new();
+
+    // Create scalar N
+    let n_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+
+    // Create scalar A (no structural dependency on N)
+    let a_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("A"),
+    });
+
+    // Set up structure: root -> sequence[N, A]
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![n_id, a_id],
+        });
+    }
+
+    // A has constraint: 1 ≤ A ≤ N (references N)
+    engine.constraints.add(
+        Some(a_id),
+        Constraint::Range {
+            target: Reference::VariableRef(a_id),
+            lower: Expression::Lit(1),
+            upper: Expression::Var(Reference::VariableRef(n_id)),
+        },
+    );
+
+    let graph = DependencyGraph::build(&engine);
+
+    // A should depend on N due to the constraint reference
+    let a_deps = graph.dependencies_of(a_id);
+    assert!(
+        a_deps.contains(&n_id),
+        "A should depend on N due to constraint reference; deps = {a_deps:?}"
+    );
+
+    // Topo sort should put N before A
+    let order = graph.topological_sort().expect("should not have cycle");
+    let n_pos = order.iter().position(|id| *id == n_id);
+    let a_pos = order.iter().position(|id| *id == a_id);
+    assert!(
+        n_pos.is_some() && a_pos.is_some(),
+        "Both N and A must be in sort order"
+    );
+    assert!(
+        n_pos.unwrap() < a_pos.unwrap(),
+        "N must come before A due to constraint dependency"
+    );
 }

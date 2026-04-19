@@ -46,6 +46,25 @@ pub enum FillContent {
     OutputSingleValue { typ: VarType },
     /// Fill with Yes/No output.
     OutputYesNo,
+    /// Fill with an edge list (`u_i`, `v_i` pairs).
+    EdgeList { edge_count: LengthSpec },
+    /// Fill with a weighted edge list (`u_i`, `v_i`, `w_i` triples).
+    WeightedEdgeList {
+        edge_count: LengthSpec,
+        weight_name: String,
+        weight_type: VarType,
+    },
+    /// Fill with a query list (Choice inside Repeat).
+    QueryList { query_count: LengthSpec },
+    /// Fill with a multi-testcase repeat block (Repeat with Hole body).
+    MultiTestCaseTemplate { count: LengthSpec },
+    /// Fill with a grid template (Matrix node).
+    GridTemplate {
+        name: String,
+        rows: LengthSpec,
+        cols: LengthSpec,
+        cell_type: VarType,
+    },
 }
 
 /// Constraint definition from the builder layer.
@@ -75,6 +94,8 @@ pub enum ConstraintDefKind {
     Property { tag: String },
     /// Sum bound across test cases.
     SumBound { over_var: String, upper: String },
+    /// Character set constraint.
+    CharSet { spec: String },
     /// Human-readable guarantee.
     Guarantee { description: String },
 }

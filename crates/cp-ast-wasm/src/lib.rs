@@ -5,6 +5,7 @@
 
 use wasm_bindgen::prelude::*;
 
+use cp_ast_core::projection::ProjectionAPI;
 use cp_ast_core::render_tex::{SectionMode, TexOptions};
 use cp_ast_tree::TreeOptions;
 
@@ -148,6 +149,94 @@ pub fn get_preset(name: &str) -> Result<String, JsError> {
     let engine =
         presets::build(name).ok_or_else(|| JsError::new(&format!("unknown preset: {name}")))?;
     cp_ast_json::serialize_ast(&engine).map_err(|e| JsError::new(&e.to_string()))
+}
+
+// ── Editor (TEA pattern) ────────────────────────────────────────────
+
+/// Creates a new empty document as JSON.
+///
+/// # Errors
+///
+/// Returns `JsError` if serialization fails.
+#[wasm_bindgen]
+pub fn new_document() -> Result<String, JsError> {
+    let engine = cp_ast_core::operation::AstEngine::new();
+    serialize(&engine)
+}
+
+/// Returns a full UI projection of the document as JSON.
+///
+/// # Errors
+///
+/// Returns `JsError` if deserialization or projection fails.
+#[wasm_bindgen]
+pub fn project_full(document_json: &str) -> Result<String, JsError> {
+    let engine = deserialize(document_json)?;
+    let projection = cp_ast_core::projection::project_full(&engine);
+    cp_ast_json::serialize_projection(&projection).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Applies an action to the document, returning the new document JSON.
+///
+/// # Errors
+///
+/// Returns `JsError` if deserialization, action application, or serialization fails.
+#[wasm_bindgen]
+pub fn apply_action(document_json: &str, action_json: &str) -> Result<String, JsError> {
+    let mut engine = deserialize(document_json)?;
+    let action =
+        cp_ast_json::deserialize_action(action_json).map_err(|e| JsError::new(&e.to_string()))?;
+    engine
+        .apply(&action)
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    serialize(&engine)
+}
+
+/// Returns hole candidates for a specific hole node as JSON.
+///
+/// # Errors
+///
+/// Returns `JsError` if the document or `hole_id` is invalid.
+#[wasm_bindgen]
+pub fn get_hole_candidates(document_json: &str, hole_id: &str) -> Result<String, JsError> {
+    let engine = deserialize(document_json)?;
+    let node_id = hole_id
+        .parse::<u64>()
+        .map(cp_ast_core::structure::NodeId::from_raw)
+        .map_err(|_| JsError::new(&format!("Invalid node ID: {hole_id}")))?;
+
+    let candidates = engine.hole_candidates(node_id);
+    serde_json::to_string(&candidates).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Returns available variables for expression input as JSON.
+///
+/// # Errors
+///
+/// Returns `JsError` if deserialization or projection fails.
+#[wasm_bindgen]
+pub fn get_expr_candidates(document_json: &str) -> Result<String, JsError> {
+    let engine = deserialize(document_json)?;
+    let projection = cp_ast_core::projection::project_full(&engine);
+    serde_json::to_string(&projection.available_vars).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Returns nodes that can be targets for constraints as JSON.
+///
+/// # Errors
+///
+/// Returns `JsError` if deserialization or projection fails.
+#[wasm_bindgen]
+pub fn get_constraint_targets(document_json: &str) -> Result<String, JsError> {
+    let engine = deserialize(document_json)?;
+    let projection = cp_ast_core::projection::project_full(&engine);
+    serde_json::to_string(&projection.available_vars).map_err(|e| JsError::new(&e.to_string()))
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────
+
+fn serialize(engine: &cp_ast_core::operation::AstEngine) -> Result<String, JsError> {
+    cp_ast_json::serialize_ast(engine).map_err(|e| JsError::new(&e.to_string()))
 }
 
 fn deserialize(json: &str) -> Result<cp_ast_core::operation::AstEngine, JsError> {

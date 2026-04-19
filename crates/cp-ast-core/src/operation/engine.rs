@@ -1,8 +1,8 @@
 use super::action::Action;
 use super::error::OperationError;
 use super::result::{ApplyResult, PreviewResult};
-use crate::constraint::ConstraintSet;
-use crate::structure::{NodeKind, StructureAst};
+use crate::constraint::{ConstraintSet, Expression};
+use crate::structure::{NodeId, NodeKind, Reference, StructureAst};
 
 /// The main AST engine that owns both Structure and Constraint data.
 ///
@@ -54,6 +54,12 @@ impl AstEngine {
                 count_var_name,
                 sum_bound,
             } => self.introduce_multi_test_case(count_var_name, sum_bound.as_ref()),
+            Action::AddSibling { target, element } => self.add_sibling(*target, element),
+            Action::AddChoiceVariant {
+                choice,
+                tag_value,
+                first_element,
+            } => self.add_choice_variant(*choice, tag_value, first_element),
         }
     }
 
@@ -96,5 +102,100 @@ impl AstEngine {
 impl Default for AstEngine {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl AstEngine {
+    /// Resolve `Unresolved` variable name references in a structure node's expressions.
+    ///
+    /// Looks up names like "N" in the structure and replaces them with `VariableRef(node_id)`.
+    /// Handles expressions in Array length, Repeat count, and references in Matrix rows/cols.
+    pub(crate) fn resolve_structure_references(&mut self, node_id: NodeId) {
+        let Some(node) = self.structure.get(node_id) else {
+            return;
+        };
+        let kind = node.kind().clone();
+        match kind {
+            NodeKind::Array { name, mut length } => {
+                Self::resolve_expr_refs(&self.structure, node_id, &mut length);
+                if let Some(n) = self.structure.get_mut(node_id) {
+                    n.set_kind(NodeKind::Array { name, length });
+                }
+            }
+            NodeKind::Matrix {
+                name,
+                mut rows,
+                mut cols,
+            } => {
+                Self::resolve_ref(&self.structure, node_id, &mut rows);
+                Self::resolve_ref(&self.structure, node_id, &mut cols);
+                if let Some(n) = self.structure.get_mut(node_id) {
+                    n.set_kind(NodeKind::Matrix { name, rows, cols });
+                }
+            }
+            NodeKind::Repeat {
+                mut count,
+                index_var,
+                body,
+            } => {
+                Self::resolve_expr_refs(&self.structure, node_id, &mut count);
+                if let Some(n) = self.structure.get_mut(node_id) {
+                    n.set_kind(NodeKind::Repeat {
+                        count,
+                        index_var,
+                        body,
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Resolve Unresolved names in a `Reference` against the structure.
+    fn resolve_ref(structure: &StructureAst, _owner: NodeId, reference: &mut Reference) {
+        if let Reference::Unresolved(name) = reference {
+            if let Some(target_id) = Self::find_node_by_name_static(structure, name.as_str()) {
+                *reference = Reference::VariableRef(target_id);
+            }
+        }
+    }
+
+    /// Resolve Unresolved names in an `Expression` against the structure.
+    fn resolve_expr_refs(structure: &StructureAst, owner: NodeId, expr: &mut Expression) {
+        match expr {
+            Expression::Var(reference) => {
+                Self::resolve_ref(structure, owner, reference);
+            }
+            Expression::BinOp { lhs, rhs, .. } => {
+                Self::resolve_expr_refs(structure, owner, lhs);
+                Self::resolve_expr_refs(structure, owner, rhs);
+            }
+            Expression::Pow { base, exp } => {
+                Self::resolve_expr_refs(structure, owner, base);
+                Self::resolve_expr_refs(structure, owner, exp);
+            }
+            Expression::FnCall { args, .. } => {
+                for arg in args {
+                    Self::resolve_expr_refs(structure, owner, arg);
+                }
+            }
+            Expression::Lit(_) => {}
+        }
+    }
+
+    /// Find a structure node by its variable name.
+    fn find_node_by_name_static(structure: &StructureAst, name: &str) -> Option<NodeId> {
+        for node in structure.iter() {
+            let node_name = match node.kind() {
+                NodeKind::Scalar { name }
+                | NodeKind::Array { name, .. }
+                | NodeKind::Matrix { name, .. } => Some(name.as_str()),
+                _ => None,
+            };
+            if node_name == Some(name) {
+                return Some(node.id());
+            }
+        }
+        None
     }
 }

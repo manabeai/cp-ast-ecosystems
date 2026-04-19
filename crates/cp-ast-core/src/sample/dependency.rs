@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::constraint::Expression;
+use crate::constraint::{Constraint, Expression};
 use crate::operation::AstEngine;
 use crate::structure::{NodeId, NodeKind, Reference};
 
@@ -20,6 +20,47 @@ fn extract_var_refs(expr: &Expression) -> Vec<NodeId> {
             refs
         }
         Expression::FnCall { args, .. } => args.iter().flat_map(extract_var_refs).collect(),
+    }
+}
+
+/// Extract `NodeId` references from a constraint's expression fields.
+///
+/// Note: The `target` field identifies which node the constraint belongs to,
+/// NOT a dependency. Only expression fields (lower, upper, etc.) contain
+/// actual cross-references that create dependencies.
+fn extract_constraint_refs(constraint: &Constraint) -> Vec<NodeId> {
+    match constraint {
+        Constraint::Range { lower, upper, .. } => {
+            let mut refs = extract_var_refs(lower);
+            refs.extend(extract_var_refs(upper));
+            refs
+        }
+        Constraint::SumBound { upper, .. } => extract_var_refs(upper),
+        Constraint::LengthRelation { length, .. } => extract_var_refs(length),
+        Constraint::Relation { lhs, rhs, .. } => {
+            let mut refs = extract_var_refs(lhs);
+            refs.extend(extract_var_refs(rhs));
+            refs
+        }
+        Constraint::StringLength { min, max, .. } => {
+            let mut refs = extract_var_refs(min);
+            refs.extend(extract_var_refs(max));
+            refs
+        }
+        Constraint::Guarantee {
+            predicate: Some(expr),
+            ..
+        } => extract_var_refs(expr),
+        // These constraint types don't have expression fields with variable refs
+        Constraint::TypeDecl { .. }
+        | Constraint::Distinct { .. }
+        | Constraint::Property { .. }
+        | Constraint::Sorted { .. }
+        | Constraint::CharSet { .. }
+        | Constraint::RenderHint { .. }
+        | Constraint::Guarantee {
+            predicate: None, ..
+        } => vec![],
     }
 }
 
@@ -126,6 +167,27 @@ impl DependencyGraph {
                     }
                 }
                 NodeKind::Scalar { .. } | NodeKind::Hole { .. } => {}
+            }
+        }
+
+        // Second pass: add constraint-level dependencies
+        // If a node's constraint references another node via VariableRef in its
+        // expressions, add a dependency edge (this node depends on the referenced node)
+        let all_nodes_set: HashSet<NodeId> = all_nodes.iter().copied().collect();
+        for node in engine.structure.iter() {
+            let id = node.id();
+            let constraint_ids = engine.constraints.for_node(id);
+            for cid in constraint_ids {
+                if let Some(constraint) = engine.constraints.get(cid) {
+                    let refs = extract_constraint_refs(constraint);
+                    for ref_id in refs {
+                        // Only add edge if ref_id is a different node AND exists in structure
+                        // (references to non-existent nodes will fail later during generation)
+                        if ref_id != id && all_nodes_set.contains(&ref_id) {
+                            deps.entry(id).or_default().push(ref_id);
+                        }
+                    }
+                }
             }
         }
 

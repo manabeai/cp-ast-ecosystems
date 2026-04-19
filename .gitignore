@@ -5,3 +5,9 @@ target
 web/wasm/
 web/node_modules/
 web/dist/
+.superpowers/
+web/playwright-report/
+
+fix copy.md
+fix2.md
+fix.md

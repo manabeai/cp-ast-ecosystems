@@ -37,6 +37,7 @@ fn emit_node(engine: &AstEngine, node_id: NodeId, sample: &GeneratedSample, outp
         NodeKind::Scalar { .. } => {
             if let Some(value) = sample.values.get(&node_id) {
                 output.push_str(&format_value(value));
+                output.push('\n');
             }
         }
         NodeKind::Array { .. } => {
@@ -139,6 +140,7 @@ fn emit_node_with_values(
         NodeKind::Scalar { .. } => {
             if let Some(value) = values.get(&node_id) {
                 output.push_str(&format_value(value));
+                output.push('\n');
             }
         }
         NodeKind::Array { .. } => {

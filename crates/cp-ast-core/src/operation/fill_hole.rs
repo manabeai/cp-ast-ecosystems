@@ -38,6 +38,12 @@ impl AstEngine {
             node.set_kind(new_kind);
         }
 
+        // 4.5. Resolve Unresolved variable references in structure expressions
+        self.resolve_structure_references(target);
+        for &child_id in &created_nodes {
+            self.resolve_structure_references(child_id);
+        }
+
         // 5. Auto-add TypeDecl constraint if applicable
         let mut created_constraints = Vec::new();
         if let Some(expected_type) = var_type_to_expected(fill) {
@@ -59,6 +65,7 @@ impl AstEngine {
         })
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn expand_fill_content(
         &mut self,
         fill: &FillContent,
@@ -76,6 +83,9 @@ impl AstEngine {
                 }
             }
             FillContent::Grid {
+                name, rows, cols, ..
+            }
+            | FillContent::GridTemplate {
                 name, rows, cols, ..
             } => {
                 let rows_ref = length_spec_to_reference(rows);
@@ -100,6 +110,75 @@ impl AstEngine {
             FillContent::OutputSingleValue { .. } | FillContent::OutputYesNo => NodeKind::Scalar {
                 name: Ident::new("ans"),
             },
+            FillContent::EdgeList { edge_count } => {
+                let u = self.structure.add_node(NodeKind::Scalar {
+                    name: Ident::new("u"),
+                });
+                let v = self.structure.add_node(NodeKind::Scalar {
+                    name: Ident::new("v"),
+                });
+                let tuple = self.structure.add_node(NodeKind::Tuple {
+                    elements: vec![u, v],
+                });
+                created.push(u);
+                created.push(v);
+                created.push(tuple);
+                NodeKind::Repeat {
+                    count: length_spec_to_expression(edge_count),
+                    index_var: None,
+                    body: vec![tuple],
+                }
+            }
+            FillContent::WeightedEdgeList {
+                edge_count,
+                weight_name,
+                ..
+            } => {
+                let u = self.structure.add_node(NodeKind::Scalar {
+                    name: Ident::new("u"),
+                });
+                let v = self.structure.add_node(NodeKind::Scalar {
+                    name: Ident::new("v"),
+                });
+                let w = self.structure.add_node(NodeKind::Scalar {
+                    name: Ident::new(weight_name),
+                });
+                let tuple = self.structure.add_node(NodeKind::Tuple {
+                    elements: vec![u, v, w],
+                });
+                created.push(u);
+                created.push(v);
+                created.push(w);
+                created.push(tuple);
+                NodeKind::Repeat {
+                    count: length_spec_to_expression(edge_count),
+                    index_var: None,
+                    body: vec![tuple],
+                }
+            }
+            FillContent::QueryList { query_count } => {
+                let choice = self.structure.add_node(NodeKind::Choice {
+                    tag: Reference::Unresolved(Ident::new("type")),
+                    variants: vec![],
+                });
+                created.push(choice);
+                NodeKind::Repeat {
+                    count: length_spec_to_expression(query_count),
+                    index_var: None,
+                    body: vec![choice],
+                }
+            }
+            FillContent::MultiTestCaseTemplate { count } => {
+                let hole = self.structure.add_node(NodeKind::Hole {
+                    expected_kind: None,
+                });
+                created.push(hole);
+                NodeKind::Repeat {
+                    count: length_spec_to_expression(count),
+                    index_var: None,
+                    body: vec![hole],
+                }
+            }
         }
     }
 }
@@ -110,8 +189,17 @@ fn var_type_to_expected(fill: &FillContent) -> Option<ExpectedType> {
             Some(var_type_to_expected_type(typ))
         }
         FillContent::OutputYesNo => Some(ExpectedType::Str),
+        FillContent::WeightedEdgeList { weight_type, .. } => {
+            Some(var_type_to_expected_type(weight_type))
+        }
+        FillContent::GridTemplate { cell_type, .. } => Some(var_type_to_expected_type(cell_type)),
         _ => None,
     }
+}
+
+/// `pub(crate)` wrapper around `var_type_to_expected` for use by other operation modules.
+pub(crate) fn var_type_to_expected_from_fill(fill: &FillContent) -> Option<ExpectedType> {
+    var_type_to_expected(fill)
 }
 
 fn var_type_to_expected_type(vt: &VarType) -> ExpectedType {
@@ -132,8 +220,51 @@ fn length_spec_to_reference(spec: &LengthSpec) -> Reference {
 
 fn length_spec_to_expression(spec: &LengthSpec) -> Expression {
     match spec {
-        LengthSpec::Fixed(n) => Expression::Var(Reference::Unresolved(Ident::new(&format!("{n}")))),
+        #[allow(clippy::cast_possible_wrap)]
+        LengthSpec::Fixed(n) => Expression::Lit(*n as i64),
         LengthSpec::RefVar(id) => Expression::Var(Reference::VariableRef(*id)),
-        LengthSpec::Expr(s) => Expression::Var(Reference::Unresolved(Ident::new(s))),
+        LengthSpec::Expr(s) => parse_length_expr(s),
     }
+}
+
+/// Parse a length expression string into an `Expression`.
+///
+/// Handles patterns like "N-1", "N+1", "2*N", or falls back to
+/// a simple literal or unresolved variable reference.
+fn parse_length_expr(s: &str) -> Expression {
+    // Try integer literal first
+    if let Ok(n) = s.parse::<i64>() {
+        return Expression::Lit(n);
+    }
+
+    // Try simple arithmetic: "X-N", "X+N" where X is a name and N is an integer
+    for (sym, op) in [
+        ('-', crate::constraint::ArithOp::Sub),
+        ('+', crate::constraint::ArithOp::Add),
+        ('*', crate::constraint::ArithOp::Mul),
+    ] {
+        if let Some(pos) = s.rfind(sym) {
+            if pos > 0 {
+                let lhs_str = s[..pos].trim();
+                let rhs_str = s[pos + 1..].trim();
+                if let Ok(rhs_val) = rhs_str.parse::<i64>() {
+                    if !lhs_str.is_empty() {
+                        let lhs = if let Ok(lhs_val) = lhs_str.parse::<i64>() {
+                            Expression::Lit(lhs_val)
+                        } else {
+                            Expression::Var(Reference::Unresolved(Ident::new(lhs_str)))
+                        };
+                        return Expression::BinOp {
+                            op,
+                            lhs: Box::new(lhs),
+                            rhs: Box::new(Expression::Lit(rhs_val)),
+                        };
+                    }
+                }
+            }
+        }
+    }
+
+    // Fall back to unresolved variable reference
+    Expression::Var(Reference::Unresolved(Ident::new(s)))
 }

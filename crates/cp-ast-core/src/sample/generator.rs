@@ -71,6 +71,9 @@ pub struct GenerationConfig {
     pub max_retries: u32,
     /// Maximum repeat count before rejecting as too large.
     pub max_repeat_count: usize,
+    /// Cap for length/count variables (repeat count, array length).
+    /// Keeps sample output readable by limiting sizes.
+    pub max_length_value: i64,
 }
 
 impl Default for GenerationConfig {
@@ -78,6 +81,7 @@ impl Default for GenerationConfig {
         Self {
             max_retries: 100,
             max_repeat_count: 500_000,
+            max_length_value: 100,
         }
     }
 }
@@ -167,11 +171,33 @@ impl<'a> GenerationContext<'a> {
             Reference::IndexedRef { .. } => Err(GenerationError::InvalidExpression(
                 "indexed reference in generation context (unsupported in Phase A)".into(),
             )),
-            Reference::Unresolved(name) => Err(GenerationError::InvalidExpression(format!(
-                "unresolved name: {}",
-                name.as_str()
-            ))),
+            Reference::Unresolved(name) => {
+                // Try to resolve the name by looking up nodes in the structure
+                if let Some(node_id) = self.find_node_by_name(name.as_str()) {
+                    return self.resolve_var_reference(&Reference::VariableRef(node_id));
+                }
+                Err(GenerationError::InvalidExpression(format!(
+                    "unresolved name: {}",
+                    name.as_str()
+                )))
+            }
         }
+    }
+
+    fn find_node_by_name(&self, name: &str) -> Option<NodeId> {
+        use crate::structure::NodeKind;
+        for node in self.engine.structure.iter() {
+            let node_name = match node.kind() {
+                NodeKind::Scalar { name }
+                | NodeKind::Array { name, .. }
+                | NodeKind::Matrix { name, .. } => Some(name.as_str()),
+                _ => None,
+            };
+            if node_name == Some(name) {
+                return Some(node.id());
+            }
+        }
+        None
     }
 
     fn apply_arith_op(op: ArithOp, l: i64, r: i64) -> Result<i64, GenerationError> {
@@ -239,6 +265,8 @@ impl<'a> GenerationContext<'a> {
             if lo > hi {
                 Err(GenerationError::RangeEmpty { min: lo, max: hi })
             } else {
+                // Cap upper bound so sample output stays small and readable.
+                let hi = hi.min(self.config.max_length_value).max(lo);
                 Ok((lo, hi))
             }
         } else {

@@ -1,6 +1,6 @@
 use super::types::{ConstraintDef, FillContent, SumBoundDef};
 use crate::constraint::ConstraintId;
-use crate::structure::NodeId;
+use crate::structure::{Literal, NodeId};
 
 /// An action that can be applied to the AST.
 ///
@@ -37,5 +37,19 @@ pub enum Action {
         parent: NodeId,
         slot_name: String,
         child: NodeId,
+    },
+    /// Add a sibling element next to a target node.
+    /// If target is a direct child of Sequence/Section/Repeat body,
+    /// wraps target + new element in a Tuple.
+    /// If target is already inside a Tuple, appends to that Tuple.
+    AddSibling {
+        target: NodeId,
+        element: FillContent,
+    },
+    /// Add a variant to a Choice node.
+    AddChoiceVariant {
+        choice: NodeId,
+        tag_value: Literal,
+        first_element: FillContent,
     },
 }
