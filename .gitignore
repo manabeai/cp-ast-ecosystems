@@ -6,3 +6,4 @@ web/wasm/
 web/node_modules/
 web/dist/
 .superpowers/
+web/playwright-report/
