@@ -191,6 +191,11 @@ fn var_type_to_expected(fill: &FillContent) -> Option<ExpectedType> {
     }
 }
 
+/// `pub(crate)` wrapper around `var_type_to_expected` for use by other operation modules.
+pub(crate) fn var_type_to_expected_from_fill(fill: &FillContent) -> Option<ExpectedType> {
+    var_type_to_expected(fill)
+}
+
 fn var_type_to_expected_type(vt: &VarType) -> ExpectedType {
     match vt {
         VarType::Int => ExpectedType::Int,

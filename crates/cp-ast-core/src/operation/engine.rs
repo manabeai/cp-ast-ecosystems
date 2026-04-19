@@ -54,6 +54,12 @@ impl AstEngine {
                 count_var_name,
                 sum_bound,
             } => self.introduce_multi_test_case(count_var_name, sum_bound.as_ref()),
+            Action::AddSibling { target, element } => self.add_sibling(*target, element),
+            Action::AddChoiceVariant {
+                choice,
+                tag_value,
+                first_element,
+            } => self.add_choice_variant(*choice, tag_value, first_element),
         }
     }
 

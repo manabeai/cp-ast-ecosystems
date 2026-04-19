@@ -1,8 +1,10 @@
 use super::engine::AstEngine;
 use super::error::OperationError;
+use super::fill_hole::var_type_to_expected_from_fill;
 use super::result::ApplyResult;
 use super::types::FillContent;
-use crate::structure::{NodeId, NodeKind};
+use crate::constraint::Constraint;
+use crate::structure::{Literal, NodeId, NodeKind, Reference};
 
 impl AstEngine {
     /// Replace an existing node with new content.
@@ -302,4 +304,279 @@ impl AstEngine {
             affected_constraints: child_constraints,
         })
     }
+
+    // ── AddSibling / AddChoiceVariant ──────────────────────────────────
+
+    /// Add a sibling element next to a target node.
+    ///
+    /// If the target is inside a Tuple, the new element is appended to that Tuple.
+    /// If the target is a direct child of a Sequence, Section body, or Repeat body,
+    /// a new Tuple is created containing the target and the new element, and that
+    /// Tuple replaces the target in the parent's slot.
+    ///
+    /// # Errors
+    /// Returns `OperationError` if the target node doesn't exist or has no parent slot.
+    pub(crate) fn add_sibling(
+        &mut self,
+        target: NodeId,
+        element: &FillContent,
+    ) -> Result<ApplyResult, OperationError> {
+        if !self.structure.contains(target) {
+            return Err(OperationError::NodeNotFound { node: target });
+        }
+
+        let (parent_id, slot) =
+            self.find_parent(target)
+                .ok_or(OperationError::InvalidOperation {
+                    action: "AddSibling".to_owned(),
+                    reason: "Target node has no parent slot".to_owned(),
+                })?;
+
+        // Expand the fill content into a new node
+        let mut created_nodes = Vec::new();
+        let new_kind = self.expand_fill_content(element, &mut created_nodes);
+        let new_node_id = self.structure.add_node(new_kind);
+        created_nodes.push(new_node_id);
+
+        // Auto-add TypeDecl constraint if applicable
+        let mut created_constraints = Vec::new();
+        if let Some(expected_type) = var_type_to_expected_from_fill(element) {
+            let cid = self.constraints.add(
+                Some(new_node_id),
+                Constraint::TypeDecl {
+                    target: Reference::VariableRef(new_node_id),
+                    expected: expected_type,
+                },
+            );
+            created_constraints.push(cid);
+        }
+
+        if let ParentSlot::Tuple = slot {
+            // Target is already inside a Tuple — append new element
+            let parent_node = self
+                .structure
+                .get(parent_id)
+                .ok_or(OperationError::NodeNotFound { node: parent_id })?;
+            if let NodeKind::Tuple { elements } = parent_node.kind() {
+                let mut new_elements = elements.clone();
+                new_elements.push(new_node_id);
+                let parent_node = self
+                    .structure
+                    .get_mut(parent_id)
+                    .ok_or(OperationError::NodeNotFound { node: parent_id })?;
+                parent_node.set_kind(NodeKind::Tuple {
+                    elements: new_elements,
+                });
+            } else {
+                return Err(OperationError::InvalidOperation {
+                    action: "AddSibling".to_owned(),
+                    reason: "Parent slot/kind invariant violation".to_owned(),
+                });
+            }
+        } else {
+            // Target is a direct child of Sequence/Section/Repeat —
+            // create a Tuple[target, new_element] and replace target in parent
+            let tuple_id = self.structure.add_node(NodeKind::Tuple {
+                elements: vec![target, new_node_id],
+            });
+            created_nodes.push(tuple_id);
+            self.replace_child_in_slot(parent_id, &slot, target, tuple_id)?;
+        }
+
+        Ok(ApplyResult {
+            created_nodes,
+            removed_nodes: vec![],
+            created_constraints,
+            affected_constraints: vec![],
+        })
+    }
+
+    /// Add a variant to a Choice node.
+    ///
+    /// # Errors
+    /// Returns `OperationError` if the target node doesn't exist or is not a Choice.
+    pub(crate) fn add_choice_variant(
+        &mut self,
+        choice: NodeId,
+        tag_value: &Literal,
+        first_element: &FillContent,
+    ) -> Result<ApplyResult, OperationError> {
+        if !self.structure.contains(choice) {
+            return Err(OperationError::NodeNotFound { node: choice });
+        }
+
+        // Verify it's a Choice
+        {
+            let node = self
+                .structure
+                .get(choice)
+                .ok_or(OperationError::NodeNotFound { node: choice })?;
+            if !matches!(node.kind(), NodeKind::Choice { .. }) {
+                return Err(OperationError::InvalidOperation {
+                    action: "AddChoiceVariant".to_owned(),
+                    reason: format!("Node {choice:?} is not a Choice"),
+                });
+            }
+        }
+
+        // Expand the fill content
+        let mut created_nodes = Vec::new();
+        let new_kind = self.expand_fill_content(first_element, &mut created_nodes);
+        let new_node_id = self.structure.add_node(new_kind);
+        created_nodes.push(new_node_id);
+
+        // Auto-add TypeDecl constraint if applicable
+        let mut created_constraints = Vec::new();
+        if let Some(expected_type) = var_type_to_expected_from_fill(first_element) {
+            let cid = self.constraints.add(
+                Some(new_node_id),
+                Constraint::TypeDecl {
+                    target: Reference::VariableRef(new_node_id),
+                    expected: expected_type,
+                },
+            );
+            created_constraints.push(cid);
+        }
+
+        // Append the variant
+        // expand_fill_content only creates new nodes — it never mutates existing ones,
+        // so the choice node kind is unchanged here.
+        let node = self
+            .structure
+            .get(choice)
+            .ok_or(OperationError::NodeNotFound { node: choice })?;
+        if let NodeKind::Choice { tag, variants } = node.kind() {
+            let tag_cloned = tag.clone();
+            let mut new_variants = variants.clone();
+            new_variants.push((tag_value.clone(), vec![new_node_id]));
+            let node = self
+                .structure
+                .get_mut(choice)
+                .ok_or(OperationError::NodeNotFound { node: choice })?;
+            node.set_kind(NodeKind::Choice {
+                tag: tag_cloned,
+                variants: new_variants,
+            });
+        } else {
+            return Err(OperationError::InvalidOperation {
+                action: "AddChoiceVariant".to_owned(),
+                reason: "Choice node kind invariant violation".to_owned(),
+            });
+        }
+
+        Ok(ApplyResult {
+            created_nodes,
+            removed_nodes: vec![],
+            created_constraints,
+            affected_constraints: vec![],
+        })
+    }
+
+    /// Find which node contains `target` in its children/body/elements slot.
+    ///
+    /// Note: does not search inside Choice variant bodies.
+    fn find_parent(&self, target: NodeId) -> Option<(NodeId, ParentSlot)> {
+        for node in self.structure.iter() {
+            let parent_id = node.id();
+            match node.kind() {
+                NodeKind::Sequence { children } => {
+                    if children.contains(&target) {
+                        return Some((parent_id, ParentSlot::Sequence));
+                    }
+                }
+                NodeKind::Section { body, .. } => {
+                    if body.contains(&target) {
+                        return Some((parent_id, ParentSlot::SectionBody));
+                    }
+                }
+                NodeKind::Repeat { body, .. } => {
+                    if body.contains(&target) {
+                        return Some((parent_id, ParentSlot::RepeatBody));
+                    }
+                }
+                NodeKind::Tuple { elements } => {
+                    if elements.contains(&target) {
+                        return Some((parent_id, ParentSlot::Tuple));
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// Replace `old_child` with `new_child` in the specified slot of a parent node.
+    fn replace_child_in_slot(
+        &mut self,
+        parent: NodeId,
+        slot: &ParentSlot,
+        old_child: NodeId,
+        new_child: NodeId,
+    ) -> Result<(), OperationError> {
+        let parent_node = self
+            .structure
+            .get(parent)
+            .ok_or(OperationError::NodeNotFound { node: parent })?;
+
+        let new_kind = match (slot, parent_node.kind()) {
+            (ParentSlot::Sequence, NodeKind::Sequence { children }) => {
+                let new_children = children
+                    .iter()
+                    .map(|&id| if id == old_child { new_child } else { id })
+                    .collect();
+                NodeKind::Sequence {
+                    children: new_children,
+                }
+            }
+            (ParentSlot::SectionBody, NodeKind::Section { header, body }) => {
+                let new_body = body
+                    .iter()
+                    .map(|&id| if id == old_child { new_child } else { id })
+                    .collect();
+                NodeKind::Section {
+                    header: *header,
+                    body: new_body,
+                }
+            }
+            (
+                ParentSlot::RepeatBody,
+                NodeKind::Repeat {
+                    count,
+                    index_var,
+                    body,
+                },
+            ) => {
+                let new_body = body
+                    .iter()
+                    .map(|&id| if id == old_child { new_child } else { id })
+                    .collect();
+                NodeKind::Repeat {
+                    count: count.clone(),
+                    index_var: index_var.clone(),
+                    body: new_body,
+                }
+            }
+            _ => {
+                return Err(OperationError::InvalidOperation {
+                    action: "AddSibling".to_owned(),
+                    reason: "Parent slot mismatch".to_owned(),
+                });
+            }
+        };
+
+        let parent_node = self
+            .structure
+            .get_mut(parent)
+            .ok_or(OperationError::NodeNotFound { node: parent })?;
+        parent_node.set_kind(new_kind);
+        Ok(())
+    }
+}
+
+/// Describes which slot of a parent node contains the target child.
+enum ParentSlot {
+    Sequence,
+    SectionBody,
+    RepeatBody,
+    Tuple,
 }
