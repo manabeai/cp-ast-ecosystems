@@ -167,38 +167,39 @@ fn generate_constraints(engine: &AstEngine) -> ProjectedConstraints {
     for node in engine.structure.iter() {
         let node_id = node.id();
         match node.kind() {
-            NodeKind::Scalar { name } => {
-                if !nodes_with_range.contains(&node_id) && is_int_typed(engine, node_id) {
-                    drafts.push(DraftConstraint {
-                        index: drafts.len(),
-                        target_id: node_id,
-                        target_name: name.as_str().to_owned(),
-                        display: format!("? ≤ {} ≤ ?", name.as_str()),
-                        template: "Range".to_owned(),
-                    });
-                }
+            NodeKind::Scalar { name }
+                if !nodes_with_range.contains(&node_id) && is_int_typed(engine, node_id) =>
+            {
+                drafts.push(DraftConstraint {
+                    index: drafts.len(),
+                    target_id: node_id,
+                    target_name: name.as_str().to_owned(),
+                    display: format!("? ≤ {} ≤ ?", name.as_str()),
+                    template: "Range".to_owned(),
+                });
             }
-            NodeKind::Array { name, .. } => {
-                if !nodes_with_range.contains(&node_id) && is_int_typed(engine, node_id) {
-                    drafts.push(DraftConstraint {
-                        index: drafts.len(),
-                        target_id: node_id,
-                        target_name: name.as_str().to_owned(),
-                        display: format!("? ≤ {}_i ≤ ?", name.as_str()),
-                        template: "Range".to_owned(),
-                    });
-                }
+            NodeKind::Array { name, .. }
+                if !nodes_with_range.contains(&node_id) && is_int_typed(engine, node_id) =>
+            {
+                drafts.push(DraftConstraint {
+                    index: drafts.len(),
+                    target_id: node_id,
+                    target_name: name.as_str().to_owned(),
+                    display: format!("? ≤ {}_i ≤ ?", name.as_str()),
+                    template: "Range".to_owned(),
+                });
             }
-            NodeKind::Matrix { name, .. } => {
-                if !nodes_with_charset.contains(&node_id) && is_str_or_char_typed(engine, node_id) {
-                    drafts.push(DraftConstraint {
-                        index: drafts.len(),
-                        target_id: node_id,
-                        target_name: name.as_str().to_owned(),
-                        display: format!("charset({}) = ?", name.as_str()),
-                        template: "CharSet".to_owned(),
-                    });
-                }
+            NodeKind::Matrix { name, .. }
+                if !nodes_with_charset.contains(&node_id)
+                    && is_str_or_char_typed(engine, node_id) =>
+            {
+                drafts.push(DraftConstraint {
+                    index: drafts.len(),
+                    target_id: node_id,
+                    target_name: name.as_str().to_owned(),
+                    display: format!("charset({}) = ?", name.as_str()),
+                    template: "CharSet".to_owned(),
+                });
             }
             _ => {}
         }

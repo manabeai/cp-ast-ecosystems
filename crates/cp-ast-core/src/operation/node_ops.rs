@@ -231,26 +231,16 @@ impl AstEngine {
             .ok_or(OperationError::NodeNotFound { node: parent })?;
 
         let (slot_exists, child_in_slot) = match parent_node.kind() {
-            NodeKind::Sequence { children } => {
-                if slot_name == "children" {
-                    (true, children.contains(&child))
-                } else {
-                    (false, false)
-                }
+            NodeKind::Sequence { children } if slot_name == "children" => {
+                (true, children.contains(&child))
             }
-            NodeKind::Section { body, .. } | NodeKind::Repeat { body, .. } => {
-                if slot_name == "body" {
-                    (true, body.contains(&child))
-                } else {
-                    (false, false)
-                }
+            NodeKind::Section { body, .. } | NodeKind::Repeat { body, .. }
+                if slot_name == "body" =>
+            {
+                (true, body.contains(&child))
             }
-            NodeKind::Tuple { elements } => {
-                if slot_name == "elements" {
-                    (true, elements.contains(&child))
-                } else {
-                    (false, false)
-                }
+            NodeKind::Tuple { elements } if slot_name == "elements" => {
+                (true, elements.contains(&child))
             }
             _ => (false, false),
         };
@@ -517,25 +507,17 @@ impl AstEngine {
         for node in self.structure.iter() {
             let parent_id = node.id();
             match node.kind() {
-                NodeKind::Sequence { children } => {
-                    if children.contains(&target) {
-                        return Some((parent_id, ParentSlot::Sequence));
-                    }
+                NodeKind::Sequence { children } if children.contains(&target) => {
+                    return Some((parent_id, ParentSlot::Sequence));
                 }
-                NodeKind::Section { body, .. } => {
-                    if body.contains(&target) {
-                        return Some((parent_id, ParentSlot::SectionBody));
-                    }
+                NodeKind::Section { body, .. } if body.contains(&target) => {
+                    return Some((parent_id, ParentSlot::SectionBody));
                 }
-                NodeKind::Repeat { body, .. } => {
-                    if body.contains(&target) {
-                        return Some((parent_id, ParentSlot::RepeatBody));
-                    }
+                NodeKind::Repeat { body, .. } if body.contains(&target) => {
+                    return Some((parent_id, ParentSlot::RepeatBody));
                 }
-                NodeKind::Tuple { elements } => {
-                    if elements.contains(&target) {
-                        return Some((parent_id, ParentSlot::Tuple));
-                    }
+                NodeKind::Tuple { elements } if elements.contains(&target) => {
+                    return Some((parent_id, ParentSlot::Tuple));
                 }
                 _ => {}
             }
