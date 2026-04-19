@@ -1,12 +1,14 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use serde::Serialize;
+
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Stable, unique identifier for AST nodes.
 ///
 /// Each `NodeId` is globally unique within a process lifetime.
 /// Used for node identification, reference resolution, and diff comparison.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub struct NodeId(u64);
 
 impl NodeId {
