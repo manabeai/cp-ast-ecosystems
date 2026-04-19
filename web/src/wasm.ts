@@ -12,6 +12,12 @@ export {
   list_presets,
   get_preset,
   version,
+  new_document,
+  project_full,
+  apply_action,
+  get_hole_candidates,
+  get_expr_candidates,
+  get_constraint_targets,
 } from '../wasm/cp_ast_wasm';
 
 let initialized = false;
