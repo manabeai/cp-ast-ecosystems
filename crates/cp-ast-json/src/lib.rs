@@ -8,8 +8,14 @@ pub mod error;
 mod from_dto;
 mod to_dto;
 
+mod action_dto;
+mod projection_dto;
+
 pub use dto::AstDocumentEnvelope;
 pub use error::ConversionError;
+
+pub use action_dto::{deserialize_action, serialize_action};
+pub use projection_dto::serialize_projection;
 
 use cp_ast_core::operation::AstEngine;
 

@@ -221,7 +221,7 @@ pub enum ReferenceDto {
 }
 
 /// Discriminated union for literal values.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind")]
 pub enum LiteralDto {
     IntLit { value: i64 },
@@ -262,4 +262,199 @@ pub enum CharSetSpecDto {
 #[serde(tag = "kind")]
 pub enum RenderHintKindDto {
     Separator { value: String },
+}
+
+// ── Actions ─────────────────────────────────────────────────────────
+
+/// Discriminated union for builder-layer actions.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "action")]
+pub enum ActionDto {
+    FillHole {
+        target: String,
+        fill: FillContentDto,
+    },
+    ReplaceNode {
+        target: String,
+        replacement: FillContentDto,
+    },
+    AddConstraint {
+        target: String,
+        constraint: ConstraintDefDto,
+    },
+    RemoveConstraint {
+        constraint_id: String,
+    },
+    IntroduceMultiTestCase {
+        count_var_name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        sum_bound: Option<SumBoundDefDto>,
+    },
+    AddSlotElement {
+        parent: String,
+        slot_name: String,
+        element: FillContentDto,
+    },
+    RemoveSlotElement {
+        parent: String,
+        slot_name: String,
+        child: String,
+    },
+    AddSibling {
+        target: String,
+        element: FillContentDto,
+    },
+    AddChoiceVariant {
+        choice: String,
+        tag_value: LiteralDto,
+        first_element: FillContentDto,
+    },
+}
+
+/// High-level fill intent for hole filling.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "kind")]
+pub enum FillContentDto {
+    Scalar {
+        name: String,
+        typ: String,
+    },
+    Array {
+        name: String,
+        element_type: String,
+        length: LengthSpecDto,
+    },
+    Grid {
+        name: String,
+        rows: LengthSpecDto,
+        cols: LengthSpecDto,
+        cell_type: String,
+    },
+    Section {
+        label: String,
+    },
+    OutputSingleValue {
+        typ: String,
+    },
+    OutputYesNo,
+    EdgeList {
+        edge_count: LengthSpecDto,
+    },
+    WeightedEdgeList {
+        edge_count: LengthSpecDto,
+        weight_name: String,
+        weight_type: String,
+    },
+    QueryList {
+        query_count: LengthSpecDto,
+    },
+    MultiTestCaseTemplate {
+        count: LengthSpecDto,
+    },
+    GridTemplate {
+        name: String,
+        rows: LengthSpecDto,
+        cols: LengthSpecDto,
+        cell_type: String,
+    },
+}
+
+/// Length specification for arrays/grids.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "kind")]
+pub enum LengthSpecDto {
+    Fixed { value: usize },
+    RefVar { node_id: String },
+    Expr { expr: String },
+}
+
+/// Constraint definition from the builder layer.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "kind")]
+pub enum ConstraintDefDto {
+    Range { lower: String, upper: String },
+    TypeDecl { typ: String },
+    Relation { op: String, rhs: String },
+    Distinct,
+    Sorted { order: String },
+    Property { tag: String },
+    SumBound { over_var: String, upper: String },
+    Guarantee { description: String },
+}
+
+/// Sum bound definition for multi-test-case introduction.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SumBoundDefDto {
+    pub bound_var: String,
+    pub upper: String,
+}
+
+// ── FullProjection DTOs ─────────────────────────────────────────────
+
+/// Rich projection of the entire AST for the editor UI.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FullProjectionDto {
+    pub nodes: Vec<ProjectedNodeDto>,
+    pub hotspots: Vec<HotspotDto>,
+    pub constraints: ProjectedConstraintsDto,
+    pub available_vars: Vec<ExprCandidateDto>,
+    pub completeness: CompletenessSummaryDto,
+}
+
+/// A projected node for UI display.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectedNodeDto {
+    pub id: String,
+    pub label: String,
+    pub depth: usize,
+    pub is_hole: bool,
+}
+
+/// An insertion point in the UI.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HotspotDto {
+    pub parent_id: String,
+    pub direction: String,
+    pub candidates: Vec<String>,
+}
+
+/// Projected constraints split into draft and completed.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectedConstraintsDto {
+    pub drafts: Vec<DraftConstraintDto>,
+    pub completed: Vec<CompletedConstraintDto>,
+}
+
+/// An unfilled constraint generated on-the-fly by projection.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DraftConstraintDto {
+    pub index: usize,
+    pub target_id: String,
+    pub target_name: String,
+    pub display: String,
+    pub template: String,
+}
+
+/// A fully specified constraint from the AST.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompletedConstraintDto {
+    pub index: usize,
+    pub constraint_id: String,
+    pub display: String,
+}
+
+/// A variable available for use in expressions.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExprCandidateDto {
+    pub name: String,
+    pub node_id: String,
+}
+
+/// Summary of AST completeness and satisfaction status.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompletenessSummaryDto {
+    pub total_holes: usize,
+    pub filled_slots: usize,
+    pub unsatisfied_constraints: usize,
+    pub is_complete: bool,
 }
