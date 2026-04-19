@@ -12,7 +12,7 @@ function handleCopyLink(): void {
   if (!json) return;
 
   const encoded = encodeURIComponent(btoa(json));
-  const url = `${window.location.origin}${window.location.pathname}${window.location.hash}?state=${encoded}`;
+  const url = `${window.location.origin}${window.location.pathname}?state=${encoded}`;
 
   navigator.clipboard.writeText(url).then(() => {
     copyFeedback.value = true;
