@@ -257,4 +257,21 @@ export class EditorPage {
     await this.page.getByTestId('math-editor-input').fill(value);
     await this.page.getByTestId('math-editor-confirm').click();
   }
+
+  /**
+   * High-level helper: add a weighted edge list template.
+   * Uses the weighted-edge-list popup option with count variable and weight name.
+   */
+  async addWeightedEdgeList(
+    countVar: string,
+    weightName: string = 'w',
+    weightType: string = 'number',
+  ): Promise<void> {
+    await this.clickHotspot('below');
+    await this.selectPopupOption('weighted-edge-list');
+    await this.selectLength(countVar);
+    await this.inputName(weightName);
+    await this.selectType(weightType);
+    await this.confirm();
+  }
 }
