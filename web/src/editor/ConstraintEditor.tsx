@@ -23,7 +23,7 @@ interface ConstraintEditorProps {
   onConfirm: (lower: string, upper: string) => void;
 }
 
-export function ConstraintEditor({ targetName, onConfirm }: ConstraintEditorProps) {
+export function ConstraintEditor({ targetId, targetName, onConfirm }: ConstraintEditorProps) {
   const lower = constraintLower.value;
   const upper = constraintUpper.value;
 
@@ -34,9 +34,9 @@ export function ConstraintEditor({ targetName, onConfirm }: ConstraintEditorProp
       </div>
 
       <div class="constraint-bound-row">
-        <BoundArea label="Lower" target="lower" value={lower} />
+        <BoundArea label="Lower" target="lower" value={lower} excludeNodeId={targetId} />
         <span class="constraint-sep">≤ {targetName} ≤</span>
-        <BoundArea label="Upper" target="upper" value={upper} />
+        <BoundArea label="Upper" target="upper" value={upper} excludeNodeId={targetId} />
       </div>
 
       <BoundExpressionUI />
@@ -53,7 +53,7 @@ export function ConstraintEditor({ targetName, onConfirm }: ConstraintEditorProp
   );
 }
 
-function BoundArea({ label, target, value }: { label: string; target: ValueInputTarget; value: string }) {
+function BoundArea({ label, target, value, excludeNodeId }: { label: string; target: ValueInputTarget; value: string; excludeNodeId?: string }) {
   const isOpen = isValueInputOpen(target);
 
   return (
@@ -80,7 +80,7 @@ function BoundArea({ label, target, value }: { label: string; target: ValueInput
           <span class="bound-placeholder">{label}...</span>
         )}
       </div>
-      {isOpen && <ValueInput target={target} />}
+      {isOpen && <ValueInput target={target} excludeNodeId={excludeNodeId} />}
     </div>
   );
 }

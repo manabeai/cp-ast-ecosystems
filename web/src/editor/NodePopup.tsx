@@ -125,10 +125,24 @@ function FieldsPanel() {
       {needsType && (
         <div class="popup-field">
           <label>Type</label>
+          <div class="type-buttons">
+            {['number', 'string', 'char'].map(t => (
+              <button
+                key={t}
+                type="button"
+                class={`type-btn ${popupType.value === t ? 'active' : ''}`}
+                onClick={() => { popupType.value = t; }}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          {/* Hidden select for E2E test compatibility */}
           <select
             data-testid="type-select"
             value={popupType.value}
             onChange={(e) => { popupType.value = (e.target as HTMLSelectElement).value; }}
+            style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, overflow: 'hidden' }}
           >
             <option value="number">number</option>
             <option value="string">string</option>

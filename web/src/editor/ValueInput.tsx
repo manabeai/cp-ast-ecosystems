@@ -15,10 +15,21 @@ import {
 
 interface ValueInputProps {
   target: ValueInputTarget;
+  excludeNodeId?: string;  // exclude self variable
 }
 
-export function ValueInput({ target }: ValueInputProps) {
+export function ValueInput({ target, excludeNodeId }: ValueInputProps) {
   const proj = projection.value;
+
+  // Filter: exclude self, exclude non-scalar variables
+  const filteredVars = proj.available_vars.filter(v => {
+    // Exclude self variable
+    if (excludeNodeId && v.node_id === excludeNodeId) return false;
+    // Check if this variable is a scalar (its node label matches its name exactly)
+    const node = proj.nodes.find(n => n.id === v.node_id);
+    if (node && node.label !== v.name) return false;  // non-scalar (array, etc.)
+    return true;
+  });
 
   const handleLiteralConfirm = (value: string) => {
     setTargetValue(target, value);
@@ -44,7 +55,7 @@ export function ValueInput({ target }: ValueInputProps) {
         }}
       />
       <div class="value-var-options">
-        {proj.available_vars.map(v => (
+        {filteredVars.map(v => (
           <button
             key={v.name}
             class="value-var-option"

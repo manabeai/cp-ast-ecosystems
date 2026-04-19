@@ -387,3 +387,27 @@ body {
   flex: 1;
 }
 .bound-expr-ui { margin-top: 0.3rem; }
+
+/* ── Type Buttons ───────────────────────────────────────────────── */
+
+.type-buttons {
+  display: flex;
+  gap: 0.4rem;
+}
+.type-btn {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.type-btn.active {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: var(--accent);
+}
+.type-btn:hover:not(.active) {
+  background: var(--bg-surface);
+}
