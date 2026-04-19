@@ -5,6 +5,7 @@
  * - Draft constraint editing (Range, CharSet)
  * - Property shortcut
  * - SumBound shortcut
+ * - Constraint deletion and re-editing
  */
 import { signal } from '@preact/signals';
 import { projection, dispatchAction } from './editor-state';
@@ -21,12 +22,14 @@ import {
   selectBoundFnOp,
   applyBoundFnOperand,
   charSetSelection,
+  customCharSetChars,
 } from './popup-state';
 import {
   buildAddConstraintRange,
   buildAddConstraintProperty,
   buildAddConstraintSumBound,
   buildAddConstraintCharSet,
+  buildRemoveConstraint,
 } from './action-builder';
 import { ConstraintEditor } from './ConstraintEditor';
 import { ValueInput, isValueInputOpen } from './ValueInput';
@@ -66,7 +69,14 @@ export function ConstraintPane() {
 
   const handleCharSetConfirm = () => {
     if (editState.step === 'charset' && charSetSelection.value) {
-      const actionJson = buildAddConstraintCharSet(editState.targetId, charSetSelection.value);
+      let spec = charSetSelection.value;
+      if (spec === 'Custom') {
+        // Build custom charset from individual chars
+        const chars = customCharSetChars.value.filter(c => c.length > 0);
+        if (chars.length === 0) return;
+        spec = `Custom:${chars.join('')}`;
+      }
+      const actionJson = buildAddConstraintCharSet(editState.targetId, spec);
       dispatchAction(actionJson);
       closeConstraintEditor();
     }
@@ -130,6 +140,18 @@ export function ConstraintPane() {
           >
             <span class="constraint-icon">●</span>
             <span class="constraint-display">{comp.display}</span>
+            <button
+              class="constraint-delete-btn"
+              data-testid={`delete-constraint-${comp.index}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                const actionJson = buildRemoveConstraint(comp.constraint_id);
+                dispatchAction(actionJson);
+              }}
+              title="Delete constraint"
+            >
+              ×
+            </button>
           </div>
         ))}
 
@@ -188,35 +210,102 @@ function PropertyOptions({ onSelect }: { onSelect: (tag: string) => void }) {
 
 function CharSetEditor({ onConfirm }: { onConfirm: () => void }) {
   const selected = charSetSelection.value;
+  const customChars = customCharSetChars.value;
+
+  const addCustomChar = () => {
+    customCharSetChars.value = [...customChars, ''];
+  };
+
+  const updateCustomChar = (index: number, value: string) => {
+    const newChars = [...customChars];
+    newChars[index] = value.slice(0, 1); // Only keep first character
+    customCharSetChars.value = newChars;
+  };
+
+  const removeCustomChar = (index: number) => {
+    if (customChars.length > 1) {
+      const newChars = customChars.filter((_, i) => i !== index);
+      customCharSetChars.value = newChars;
+    }
+  };
+
+  const hasValidCustomChars = customChars.some(c => c.length > 0);
 
   return (
     <div class="charset-options">
       <div class="constraint-editor-label">Select Character Set</div>
-      <button
-        class={`charset-option ${selected === 'LowerAlpha' ? 'active' : ''}`}
-        data-testid="charset-option-lowercase"
-        onClick={() => { charSetSelection.value = 'LowerAlpha'; }}
-      >
-        a-z (lowercase)
-      </button>
-      <button
-        class={`charset-option ${selected === 'UpperAlpha' ? 'active' : ''}`}
-        data-testid="charset-option-uppercase"
-        onClick={() => { charSetSelection.value = 'UpperAlpha'; }}
-      >
-        A-Z (uppercase)
-      </button>
-      <button
-        class={`charset-option ${selected === 'Digit' ? 'active' : ''}`}
-        data-testid="charset-option-digit"
-        onClick={() => { charSetSelection.value = 'Digit'; }}
-      >
-        0-9 (digit)
-      </button>
+      <div class="charset-presets">
+        <button
+          class={`charset-option ${selected === 'LowerAlpha' ? 'active' : ''}`}
+          data-testid="charset-option-lowercase"
+          onClick={() => { charSetSelection.value = 'LowerAlpha'; }}
+        >
+          a-z (lowercase)
+        </button>
+        <button
+          class={`charset-option ${selected === 'UpperAlpha' ? 'active' : ''}`}
+          data-testid="charset-option-uppercase"
+          onClick={() => { charSetSelection.value = 'UpperAlpha'; }}
+        >
+          A-Z (uppercase)
+        </button>
+        <button
+          class={`charset-option ${selected === 'Digit' ? 'active' : ''}`}
+          data-testid="charset-option-digit"
+          onClick={() => { charSetSelection.value = 'Digit'; }}
+        >
+          0-9 (digit)
+        </button>
+        <button
+          class={`charset-option ${selected === 'Custom' ? 'active' : ''}`}
+          data-testid="charset-option-custom"
+          onClick={() => { charSetSelection.value = 'Custom'; }}
+        >
+          Custom
+        </button>
+      </div>
+
+      {selected === 'Custom' && (
+        <div class="charset-custom-editor">
+          <div class="charset-custom-label">Enter characters:</div>
+          <div class="charset-custom-inputs">
+            {customChars.map((char, index) => (
+              <div key={index} class="charset-char-input-group">
+                <input
+                  type="text"
+                  class="charset-char-input"
+                  data-testid={`charset-char-input-${index}`}
+                  value={char}
+                  maxLength={1}
+                  placeholder="?"
+                  onInput={(e) => updateCustomChar(index, (e.target as HTMLInputElement).value)}
+                />
+                {customChars.length > 1 && (
+                  <button
+                    class="charset-char-remove"
+                    onClick={() => removeCustomChar(index)}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              class="charset-add-btn"
+              data-testid="charset-add-char"
+              onClick={addCustomChar}
+            >
+              +
+            </button>
+          </div>
+        </div>
+      )}
+
       <button
         class="constraint-confirm-btn"
         data-testid="constraint-confirm"
         onClick={onConfirm}
+        disabled={selected === 'Custom' && !hasValidCustomChars}
       >
         Confirm CharSet
       </button>

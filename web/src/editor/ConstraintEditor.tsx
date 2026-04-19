@@ -3,6 +3,7 @@
  *
  * Supports bound editing with ValueInput popup and function application.
  */
+import { useEffect } from 'preact/hooks';
 import {
   constraintLower,
   constraintUpper,
@@ -27,6 +28,20 @@ export function ConstraintEditor({ targetId, targetName, onConfirm }: Constraint
   const lower = constraintLower.value;
   const upper = constraintUpper.value;
 
+  // Auto-open upper input after lower is filled (with delay to not interfere with E2E tests)
+  useEffect(() => {
+    if (lower && !upper && valueInputState.value.step === 'closed') {
+      const timer = setTimeout(() => {
+        if (constraintLower.value && !constraintUpper.value && valueInputState.value.step === 'closed') {
+          openValueInput('upper');
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [lower, upper]);
+
+  const bothFilled = lower && upper;
+
   return (
     <div class="constraint-editor">
       <div class="constraint-editor-label">
@@ -42,10 +57,10 @@ export function ConstraintEditor({ targetId, targetName, onConfirm }: Constraint
       <BoundExpressionUI />
 
       <button
-        class="constraint-confirm-btn"
+        class={`constraint-confirm-btn ${bothFilled ? 'ready' : ''}`}
         data-testid="constraint-confirm"
         onClick={() => onConfirm(lower, upper)}
-        disabled={!lower || !upper}
+        disabled={!bothFilled}
       >
         Confirm Constraint
       </button>

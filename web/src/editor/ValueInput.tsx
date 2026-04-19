@@ -53,6 +53,12 @@ export function ValueInput({ target, excludeNodeId }: ValueInputProps) {
             handleLiteralConfirm((e.currentTarget as HTMLInputElement).value);
           }
         }}
+        onBlur={(e) => {
+          const value = (e.currentTarget as HTMLInputElement).value.trim();
+          if (value) {
+            handleLiteralConfirm(value);
+          }
+        }}
       />
       <div class="value-var-options">
         {filteredVars.map(v => (

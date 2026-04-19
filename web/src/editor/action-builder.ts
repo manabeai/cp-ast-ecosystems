@@ -151,6 +151,14 @@ export function buildFillHole(targetId: string, fill: FillContent): string {
   });
 }
 
+export function buildReplaceNode(targetId: string, fill: FillContent): string {
+  return JSON.stringify({
+    action: 'ReplaceNode',
+    target: targetId,
+    replacement: fill,
+  });
+}
+
 export function buildAddChoiceVariant(
   choiceId: string,
   tagValue: number,
@@ -201,6 +209,13 @@ export function buildAddConstraintCharSet(targetId: string, spec: string): strin
     action: 'AddConstraint',
     target: targetId,
     constraint: { kind: 'CharSet', spec },
+  });
+}
+
+export function buildRemoveConstraint(constraintId: string): string {
+  return JSON.stringify({
+    action: 'RemoveConstraint',
+    constraint_id: constraintId,
   });
 }
 

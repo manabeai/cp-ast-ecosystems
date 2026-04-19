@@ -192,6 +192,13 @@ fn parse_charset_spec(spec: &str) -> CharSetSpec {
         "Alpha" => CharSetSpec::Alpha,
         "Digit" => CharSetSpec::Digit,
         "AlphaNumeric" => CharSetSpec::AlphaNumeric,
-        _ => CharSetSpec::Custom(spec.chars().collect()),
+        _ => {
+            // Handle "Custom:abc" format from frontend
+            if let Some(chars) = spec.strip_prefix("Custom:") {
+                CharSetSpec::Custom(chars.chars().collect())
+            } else {
+                CharSetSpec::Custom(spec.chars().collect())
+            }
+        }
     }
 }

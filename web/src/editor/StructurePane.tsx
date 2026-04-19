@@ -1,10 +1,11 @@
 /**
  * Structure pane: renders projected nodes and hotspots.
  */
-import { projection } from './editor-state';
+import { projection, dispatchAction } from './editor-state';
 import type { Hotspot } from './editor-state';
-import { openPopup, popupState } from './popup-state';
+import { openPopup, popupState, nodeEditState, nodeEditName, openNodeEdit, closeNodeEdit } from './popup-state';
 import { NodePopup } from './NodePopup';
+import { buildReplaceNode } from './action-builder';
 
 type RenderItem =
   | { type: 'node'; node: { id: string; label: string; depth: number; is_hole: boolean }; hotspots: Hotspot[] }
@@ -83,11 +84,28 @@ export function StructurePane() {
         )}
         {items.map(item => {
           if (item.type === 'node') {
+            const editState = nodeEditState.value;
+            const isEditing = editState.step === 'editing' && editState.nodeId === item.node.id;
+            
             return (
               <div key={item.node.id} class="structure-node" style={{ paddingLeft: `${item.node.depth * 1.2}rem` }}>
-                <span class={`node-label ${item.node.is_hole ? 'node-hole' : ''}`}>
-                  {item.node.label}
-                </span>
+                {isEditing ? (
+                  <NodeInlineEdit
+                    nodeId={item.node.id}
+                    currentLabel={item.node.label}
+                  />
+                ) : (
+                  <span
+                    class={`node-label ${item.node.is_hole ? 'node-hole' : 'node-editable'}`}
+                    onClick={() => {
+                      if (!item.node.is_hole) {
+                        openNodeEdit(item.node.id, item.node.label);
+                      }
+                    }}
+                  >
+                    {item.node.label}
+                  </span>
+                )}
                 {item.hotspots.map(h => (
                   <HotspotButton key={`${h.direction}-${h.parent_id}`} hotspot={h} />
                 ))}
@@ -104,6 +122,58 @@ export function StructurePane() {
         {popupState.value.step !== 'closed' && <NodePopup />}
       </div>
     </div>
+  );
+}
+
+function NodeInlineEdit({ nodeId, currentLabel }: { nodeId: string; currentLabel: string }) {
+  const name = nodeEditName.value;
+  
+  const handleConfirm = () => {
+    if (name.trim()) {
+      // Parse the current label to determine type
+      // Scalar: just "N"
+      // Array: "A[N]" - extract length var
+      const arrayMatch = currentLabel.match(/^[A-Za-z_][A-Za-z0-9_]*\[([^\]]+)\]/);
+      
+      if (arrayMatch) {
+        // Array - keep same structure with new name
+        const lengthVar = arrayMatch[1];
+        const actionJson = buildReplaceNode(nodeId, {
+          kind: 'Array',
+          name: name.trim(),
+          element_type: 'Int',
+          length: { kind: 'Expr', expr: lengthVar },
+        });
+        dispatchAction(actionJson);
+      } else {
+        // Scalar
+        const actionJson = buildReplaceNode(nodeId, {
+          kind: 'Scalar',
+          name: name.trim(),
+          typ: 'Int',
+        });
+        dispatchAction(actionJson);
+      }
+    }
+    closeNodeEdit();
+  };
+  
+  return (
+    <span class="node-inline-edit">
+      <input
+        type="text"
+        class="node-edit-input"
+        data-testid="node-edit-input"
+        value={name}
+        onInput={(e) => { nodeEditName.value = (e.target as HTMLInputElement).value; }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') handleConfirm();
+          if (e.key === 'Escape') closeNodeEdit();
+        }}
+        onBlur={handleConfirm}
+        autoFocus
+      />
+    </span>
   );
 }
 

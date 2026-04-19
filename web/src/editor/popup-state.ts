@@ -15,6 +15,26 @@ export type PopupPhase =
 
 export const popupState = signal<PopupPhase>({ step: 'closed' });
 
+// ── Node Edit State ────────────────────────────────────────────────
+
+export type NodeEditPhase =
+  | { step: 'closed' }
+  | { step: 'editing'; nodeId: string; currentLabel: string };
+
+export const nodeEditState = signal<NodeEditPhase>({ step: 'closed' });
+export const nodeEditName = signal('');
+
+export function openNodeEdit(nodeId: string, currentLabel: string): void {
+  // Extract name from label (e.g., "A[N]" -> "A", "N" -> "N")
+  const name = currentLabel.match(/^([A-Za-z_][A-Za-z0-9_]*)/)?.[1] ?? currentLabel;
+  nodeEditState.value = { step: 'editing', nodeId, currentLabel };
+  nodeEditName.value = name;
+}
+
+export function closeNodeEdit(): void {
+  nodeEditState.value = { step: 'closed' };
+}
+
 // Popup field values
 export const popupName = signal('');
 export const popupType = signal('number');
@@ -152,11 +172,13 @@ export function applyBoundFnOperand(operand: string): void {
 }
 
 export const charSetSelection = signal('');
+export const customCharSetChars = signal<string[]>(['']);
 
 export function openConstraintEditor(targetId: string, targetName: string, template: string): void {
   if (template === 'CharSet') {
     constraintEditState.value = { step: 'charset', targetId, targetName };
     charSetSelection.value = '';
+    customCharSetChars.value = [''];
   } else {
     constraintEditState.value = { step: 'editing', targetId, targetName, template };
   }
