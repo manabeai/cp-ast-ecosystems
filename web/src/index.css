@@ -39,6 +39,15 @@ body {
 .nav-link:hover { color: var(--text-primary); background: var(--bg-surface); }
 .nav-link.active { color: var(--accent); background: var(--bg-surface); }
 
+.copy-link-btn {
+  font-size: 0.8rem; padding: 0.25rem 0.75rem;
+  background: transparent; color: var(--text-secondary);
+  border: 1px solid var(--border); border-radius: 4px;
+  cursor: pointer; transition: all 0.2s; margin-left: 0.5rem;
+  font-weight: 500; white-space: nowrap;
+}
+.copy-link-btn:hover { border-color: var(--accent); color: var(--accent); }
+
 .main { flex: 1; overflow: hidden; }
 
 .viewer-page { display: flex; flex-direction: column; height: 100%; }
@@ -197,6 +206,25 @@ body {
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 
+.popup-step-indicator {
+  display: flex; align-items: center; gap: 0.4rem;
+  margin-bottom: 0.5rem; font-size: 0.9rem;
+}
+.step-active { color: var(--accent); font-weight: 600; }
+.step-inactive { color: var(--text-secondary); }
+.step-arrow { color: var(--text-secondary); font-size: 0.75rem; }
+
+.popup-wizard {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem;
+}
+
+.popup-candidate-list {
+  display: flex; flex-direction: column; gap: 0.3rem;
+  min-width: 7rem;
+}
+
 .popup-candidates { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 
 .popup-option {
@@ -204,10 +232,46 @@ body {
   border: 1px solid var(--border); border-radius: 4px;
   background: var(--bg-surface); color: var(--text-primary);
   cursor: pointer; transition: all 0.15s;
+  text-align: left; white-space: nowrap;
 }
 .popup-option:hover { border-color: var(--accent); color: var(--accent); }
+.popup-option.selected {
+  border-color: var(--accent); background: var(--accent);
+  color: var(--bg-primary); font-weight: 600;
+}
 
-.popup-fields { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem; }
+.popup-right-panel {
+  min-height: 4rem;
+  display: flex; flex-direction: column;
+}
+
+.popup-preview {
+  display: flex; flex-direction: column; gap: 0.4rem;
+  padding: 0.5rem;
+  border: 1px dashed var(--border); border-radius: 4px;
+  background: var(--bg-primary);
+  flex: 1;
+}
+.popup-preview-empty {
+  display: flex; align-items: center; justify-content: center;
+  padding: 0.5rem;
+  border: 1px dashed var(--border); border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-secondary); font-size: 0.75rem;
+  flex: 1;
+}
+.preview-title {
+  font-size: 0.8rem; font-weight: 600;
+  color: var(--accent); margin-bottom: 0.2rem;
+}
+.preview-fields { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.preview-field-tag {
+  font-size: 0.7rem; padding: 0.15rem 0.4rem;
+  border: 1px solid var(--border); border-radius: 3px;
+  background: var(--bg-secondary); color: var(--text-secondary);
+}
+
+.popup-fields { display: flex; flex-direction: column; gap: 0.5rem; }
 
 .popup-field {
   display: flex; align-items: center; gap: 0.5rem;

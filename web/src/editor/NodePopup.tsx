@@ -1,7 +1,11 @@
 /**
  * Node creation wizard popup.
  *
- * Appears when a hotspot is clicked, shows candidate options and input fields.
+ * 2-step inline wizard with candidate preview:
+ *   Step 1 — choose a candidate (left list + hover preview on right)
+ *   Step 2 — fill in fields (left list with selection + fields panel on right)
+ *
+ * Variant hotspots skip the wizard and go directly to the fields panel.
  */
 import { projection } from './editor-state';
 import { dispatchAction } from './editor-state';
@@ -9,13 +13,13 @@ import {
   popupState,
   selectCandidate,
   closePopup,
+  hoveredCandidate,
   popupName,
   popupType,
   popupLengthVar,
   popupLengthVar2,
   popupWeightName,
   popupVariantTag,
-  countExprState,
 } from './popup-state';
 import {
   buildFillFromPopup,
@@ -34,31 +38,122 @@ const CANDIDATE_LABELS: Record<string, string> = {
   'multi-testcase': 'Multi-Testcase',
 };
 
+const PREVIEW_FIELDS: Record<string, string[]> = {
+  scalar: ['Type', 'Name'],
+  array: ['Type', 'Name', 'Length'],
+  'grid-template': ['Rows', 'Cols'],
+  'edge-list': ['Count'],
+  'weighted-edge-list': ['Count', 'Weight', 'Type'],
+  'query-list': ['Count'],
+  'multi-testcase': ['Count'],
+};
+
 export function NodePopup() {
   const state = popupState.value;
   if (state.step === 'closed') return null;
 
+  // Variant bypasses the wizard layout
+  if (state.step === 'fields' && state.candidate === 'variant') {
+    return (
+      <div class="node-popup" data-testid="node-popup">
+        <VariantFieldsPanel />
+      </div>
+    );
+  }
+
+  const candidates = state.hotspot.candidates;
+  const activeStep = state.step === 'candidates' ? 1 : 2;
+  const selectedCandidate = state.step === 'fields' ? state.candidate : null;
+
   return (
     <div class="node-popup" data-testid="node-popup">
-      {state.step === 'candidates' && <CandidateList candidates={state.hotspot.candidates} />}
-      {state.step === 'fields' && <FieldsPanel />}
+      <StepIndicator active={activeStep} />
+      <div class="popup-wizard">
+        <div class="popup-candidate-list">
+          {candidates.map(c => (
+            <button
+              key={c}
+              class={`popup-option${selectedCandidate === c ? ' selected' : ''}`}
+              data-testid={`popup-option-${c}`}
+              onClick={() => selectCandidate(c)}
+              onMouseEnter={() => { hoveredCandidate.value = c; }}
+              onMouseLeave={() => { hoveredCandidate.value = null; }}
+            >
+              {CANDIDATE_LABELS[c] ?? c}
+            </button>
+          ))}
+        </div>
+        <div class="popup-right-panel">
+          {state.step === 'candidates' && <PreviewPanel />}
+          {state.step === 'fields' && <FieldsPanel />}
+        </div>
+      </div>
     </div>
   );
 }
 
-function CandidateList({ candidates }: { candidates: string[] }) {
+function StepIndicator({ active }: { active: number }) {
   return (
-    <div class="popup-candidates">
-      {candidates.map(c => (
-        <button
-          key={c}
-          class="popup-option"
-          data-testid={`popup-option-${c}`}
-          onClick={() => selectCandidate(c)}
-        >
-          {CANDIDATE_LABELS[c] ?? c}
-        </button>
-      ))}
+    <div class="popup-step-indicator">
+      <span class={active === 1 ? 'step-active' : 'step-inactive'}>①</span>
+      <span class="step-arrow">→</span>
+      <span class={active === 2 ? 'step-active' : 'step-inactive'}>②</span>
+    </div>
+  );
+}
+
+function PreviewPanel() {
+  const hovered = hoveredCandidate.value;
+  if (!hovered) {
+    return <div class="popup-preview popup-preview-empty">Hover to preview fields</div>;
+  }
+  const fields = PREVIEW_FIELDS[hovered] ?? [];
+  return (
+    <div class="popup-preview">
+      <div class="preview-title">{CANDIDATE_LABELS[hovered] ?? hovered}</div>
+      <div class="preview-fields">
+        {fields.map(f => (
+          <span key={f} class="preview-field-tag">{f}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function VariantFieldsPanel() {
+  const state = popupState.value;
+  if (state.step !== 'fields') return null;
+
+  const handleConfirm = () => {
+    const tagNum = parseInt(popupVariantTag.value, 10) || 0;
+    const actionJson = buildAddChoiceVariant(state.hotspot.parent_id, tagNum, popupName.value);
+    dispatchAction(actionJson);
+    closePopup();
+  };
+
+  return (
+    <div class="popup-fields">
+      <div class="popup-field">
+        <label>Tag Value</label>
+        <input
+          type="text"
+          data-testid="variant-tag-input"
+          value={popupVariantTag.value}
+          onInput={(e) => { popupVariantTag.value = (e.target as HTMLInputElement).value; }}
+        />
+      </div>
+      <div class="popup-field">
+        <label>Name</label>
+        <input
+          type="text"
+          data-testid="name-input"
+          value={popupName.value}
+          onInput={(e) => { popupName.value = (e.target as HTMLInputElement).value; }}
+        />
+      </div>
+      <button class="popup-confirm" data-testid="confirm-button" onClick={handleConfirm}>
+        Confirm
+      </button>
     </div>
   );
 }
@@ -77,21 +172,12 @@ function FieldsPanel() {
   const needsGridLength = candidate === 'grid-template';
   const needsCountExpr = candidate === 'edge-list';
   const needsWeightName = candidate === 'weighted-edge-list';
-  const isVariant = candidate === 'variant';
 
   // For grid-template, we need TWO length selectors. The first unset one gets the testid.
   const gridRowsSet = popupLengthVar.value !== '';
   const gridColsSet = popupLengthVar2.value !== '';
 
   const handleConfirm = () => {
-    if (isVariant) {
-      const tagNum = parseInt(popupVariantTag.value, 10) || 0;
-      const actionJson = buildAddChoiceVariant(state.hotspot.parent_id, tagNum, popupName.value);
-      dispatchAction(actionJson);
-      closePopup();
-      return;
-    }
-
     const countExpr = needsCountExpr ? (getCountExprValue() || popupLengthVar.value) : '';
     const fill = buildFillFromPopup(
       candidate,
@@ -110,18 +196,6 @@ function FieldsPanel() {
 
   return (
     <div class="popup-fields">
-      {isVariant && (
-        <div class="popup-field">
-          <label>Tag Value</label>
-          <input
-            type="text"
-            data-testid="variant-tag-input"
-            value={popupVariantTag.value}
-            onInput={(e) => { popupVariantTag.value = (e.target as HTMLInputElement).value; }}
-          />
-        </div>
-      )}
-
       {needsType && (
         <div class="popup-field">
           <label>Type</label>
@@ -151,7 +225,7 @@ function FieldsPanel() {
         </div>
       )}
 
-      {(needsName || isVariant) && (
+      {needsName && (
         <div class="popup-field">
           <label>Name</label>
           <input

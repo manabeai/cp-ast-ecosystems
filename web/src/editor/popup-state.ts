@@ -58,10 +58,21 @@ export function openPopup(hotspot: Hotspot): void {
   countExprState.value = { step: 'idle', value: '' };
 }
 
+/** Candidate hovered in the wizard (step 1 preview). */
+export const hoveredCandidate = signal<string | null>(null);
+
 export function selectCandidate(candidate: string): void {
   const cur = popupState.value;
-  if (cur.step !== 'candidates') return;
-  popupState.value = { step: 'fields', hotspot: cur.hotspot, candidate };
+  if (cur.step === 'candidates' || cur.step === 'fields') {
+    popupState.value = { step: 'fields', hotspot: cur.hotspot, candidate };
+    // Reset field values when switching candidates
+    popupName.value = '';
+    popupType.value = 'number';
+    popupLengthVar.value = '';
+    popupLengthVar2.value = '';
+    popupWeightName.value = '';
+    countExprState.value = { step: 'idle', value: '' };
+  }
 }
 
 export function closePopup(): void {
@@ -185,7 +196,9 @@ export function openConstraintEditor(targetId: string, targetName: string, templ
   constraintLower.value = '';
   constraintUpper.value = '';
   boundExprState.value = { step: 'idle' };
-  valueInputState.value = { step: 'closed' };
+  valueInputState.value = template === 'CharSet'
+    ? { step: 'closed' }
+    : { step: 'open', target: 'lower' };
 }
 
 export function openSumBound(): void {
