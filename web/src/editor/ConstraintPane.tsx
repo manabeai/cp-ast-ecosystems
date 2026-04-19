@@ -34,12 +34,14 @@ import {
 import { ConstraintEditor } from './ConstraintEditor';
 import { ValueInput, isValueInputOpen } from './ValueInput';
 import { FunctionOpsPanel, FunctionOperandInput } from './ExpressionBuilder';
+import { constraintFolded, toggleConstraintFold } from './fold-state';
 
 const showPropertyOptions = signal(false);
 
 export function ConstraintPane() {
   const proj = projection.value;
   const editState = constraintEditState.value;
+  const folded = constraintFolded.value;
 
   const handleRangeConfirm = (lower: string, upper: string) => {
     if (editState.step === 'editing') {
@@ -83,29 +85,34 @@ export function ConstraintPane() {
   };
 
   return (
-    <div class="pane" data-testid="constraint-pane">
+    <div class={`pane ${folded ? 'folded' : ''}`} data-testid="constraint-pane">
       <div class="pane-header">
         <span class="pane-title">Constraints</span>
-        <div class="constraint-shortcuts">
-          <button
-            class="shortcut-btn"
-            data-testid="property-shortcut"
-            onClick={() => {
-              closeConstraintEditor();
-              showPropertyOptions.value = !showPropertyOptions.value;
-            }}
-          >
-            Property
-          </button>
-          <button
-            class="shortcut-btn"
-            data-testid="sumbound-shortcut"
-            onClick={() => {
-              showPropertyOptions.value = false;
-              openSumBound();
-            }}
-          >
-            ΣBound
+        <div class="pane-header-controls">
+          <div class="constraint-shortcuts">
+            <button
+              class="shortcut-btn"
+              data-testid="property-shortcut"
+              onClick={() => {
+                closeConstraintEditor();
+                showPropertyOptions.value = !showPropertyOptions.value;
+              }}
+            >
+              Property
+            </button>
+            <button
+              class="shortcut-btn"
+              data-testid="sumbound-shortcut"
+              onClick={() => {
+                showPropertyOptions.value = false;
+                openSumBound();
+              }}
+            >
+              ΣBound
+            </button>
+          </div>
+          <button class="fold-toggle" onClick={toggleConstraintFold} aria-label={folded ? 'Expand' : 'Collapse'}>
+            {folded ? '▶' : '▼'}
           </button>
         </div>
       </div>

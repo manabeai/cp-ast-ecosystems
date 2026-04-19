@@ -475,3 +475,57 @@ body {
 .type-btn:hover:not(.active) {
   background: var(--bg-surface);
 }
+
+/* ── Fold Toggle (SP only) ──────────────────────────────────────── */
+
+.fold-toggle {
+  display: none;
+  font-size: 0.75rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-left: 0.5rem;
+}
+.fold-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pane-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ── SP (Mobile) Responsive Layout ──────────────────────────────── */
+
+@media (max-width: 768px) {
+  .editor-panes {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .pane {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .fold-toggle {
+    display: inline-flex;
+  }
+
+  .pane.folded .pane-content-scroll {
+    display: none;
+  }
+
+  .pane.folded {
+    flex: none;
+  }
+}

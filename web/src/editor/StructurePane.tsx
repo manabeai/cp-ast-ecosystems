@@ -6,6 +6,7 @@ import type { Hotspot } from './editor-state';
 import { openPopup, popupState, nodeEditState, nodeEditName, openNodeEdit, closeNodeEdit } from './popup-state';
 import { NodePopup } from './NodePopup';
 import { buildReplaceNode } from './action-builder';
+import { structureFolded, toggleStructureFold } from './fold-state';
 
 type RenderItem =
   | { type: 'node'; node: { id: string; label: string; depth: number; is_hole: boolean }; hotspots: Hotspot[] }
@@ -69,10 +70,15 @@ export function StructurePane() {
     ? buildRenderItems(proj.nodes, hotspotsByParent)
     : [];
 
+  const folded = structureFolded.value;
+
   return (
-    <div class="pane" data-testid="structure-pane">
+    <div class={`pane ${folded ? 'folded' : ''}`} data-testid="structure-pane">
       <div class="pane-header">
         <span class="pane-title">Structure</span>
+        <button class="fold-toggle" onClick={toggleStructureFold} aria-label={folded ? 'Expand' : 'Collapse'}>
+          {folded ? '▶' : '▼'}
+        </button>
       </div>
       <div class="pane-content-scroll">
         {proj.nodes.length === 0 && (

@@ -3,19 +3,26 @@
  */
 import { inputTexString, constraintsTexString, sampleText, shuffleSeed } from './editor-state';
 import { renderInputTex, renderConstraintsTex } from '../tex-renderer';
+import { previewFolded, togglePreviewFold } from './fold-state';
 
 export function PreviewPane() {
   const inputTex = inputTexString.value;
   const constraintsTex = constraintsTexString.value;
   const sample = sampleText.value;
+  const folded = previewFolded.value;
 
   return (
-    <div class="pane" data-testid="preview-pane">
+    <div class={`pane ${folded ? 'folded' : ''}`} data-testid="preview-pane">
       <div class="pane-header">
         <span class="pane-title">Preview</span>
-        <button class="toggle-btn" onClick={() => shuffleSeed()}>
-          🎲 Resample
-        </button>
+        <div class="pane-header-controls">
+          <button class="toggle-btn" onClick={() => shuffleSeed()}>
+            🎲 Resample
+          </button>
+          <button class="fold-toggle" onClick={togglePreviewFold} aria-label={folded ? 'Expand' : 'Collapse'}>
+            {folded ? '▶' : '▼'}
+          </button>
+        </div>
       </div>
       <div class="pane-content-scroll">
         <div class="tex-section">
