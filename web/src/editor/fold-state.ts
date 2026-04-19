@@ -5,14 +5,10 @@
  */
 import { signal } from '@preact/signals';
 
-// Structure pane: open by default on SP
+// All panes default to open (not folded)
 export const structureFolded = signal(false);
-
-// Constraint pane: collapsed by default on SP
-export const constraintFolded = signal(true);
-
-// Preview pane: collapsed by default on SP
-export const previewFolded = signal(true);
+export const constraintFolded = signal(false);
+export const previewFolded = signal(false);
 
 export function toggleStructureFold() {
   structureFolded.value = !structureFolded.value;
