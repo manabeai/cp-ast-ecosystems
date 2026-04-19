@@ -79,10 +79,10 @@ export function buildGridTemplateFill(
   };
 }
 
-export function buildEdgeListFill(countExpr: string): FillContent {
+export function buildEdgeListFill(countExpr: string, availableVars: ExprCandidate[] = []): FillContent {
   return {
     kind: 'EdgeList',
-    edge_count: { kind: 'Expr', expr: countExpr },
+    edge_count: buildLengthSpec(countExpr, availableVars),
   };
 }
 
@@ -276,7 +276,7 @@ export function buildFillFromPopup(
     case 'grid-template':
       return buildGridTemplateFill(lengthVar, lengthVar2, availableVars);
     case 'edge-list':
-      return buildEdgeListFill(countExpr);
+      return buildEdgeListFill(countExpr, availableVars);
     case 'weighted-edge-list':
       return buildWeightedEdgeListFill(lengthVar, weightName, uiType, availableVars);
     case 'query-list':

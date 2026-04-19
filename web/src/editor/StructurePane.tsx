@@ -6,6 +6,54 @@ import type { Hotspot } from './editor-state';
 import { openPopup, popupState } from './popup-state';
 import { NodePopup } from './NodePopup';
 
+type RenderItem =
+  | { type: 'node'; node: { id: string; label: string; depth: number; is_hole: boolean }; hotspots: Hotspot[] }
+  | { type: 'below'; hotspot: Hotspot; depth: number };
+
+/**
+ * Build an interleaved list of nodes and deferred "below" hotspots.
+ * "below" hotspots are placed after their parent's subtree ends (not inline
+ * with the parent node), so that DOM order matches visual nesting order.
+ */
+function buildRenderItems(
+  nodes: { id: string; label: string; depth: number; is_hole: boolean }[],
+  hotspotsByParent: Map<string, Hotspot[]>,
+): RenderItem[] {
+  const items: RenderItem[] = [];
+  const pendingBelow: { depth: number; hotspot: Hotspot }[] = [];
+
+  for (const node of nodes) {
+    // Flush pending "below" hotspots whose subtree just ended
+    while (pendingBelow.length > 0) {
+      const top = pendingBelow[pendingBelow.length - 1];
+      if (top.depth >= node.depth) {
+        pendingBelow.pop();
+        items.push({ type: 'below', hotspot: top.hotspot, depth: top.depth + 1 });
+      } else {
+        break;
+      }
+    }
+
+    const nodeHotspots = hotspotsByParent.get(node.id) ?? [];
+    const belowHotspot = nodeHotspots.find(h => h.direction === 'below');
+    const otherHotspots = nodeHotspots.filter(h => h.direction !== 'below');
+
+    items.push({ type: 'node', node, hotspots: otherHotspots });
+
+    if (belowHotspot) {
+      pendingBelow.push({ depth: node.depth, hotspot: belowHotspot });
+    }
+  }
+
+  // Flush remaining (deepest first)
+  while (pendingBelow.length > 0) {
+    const top = pendingBelow.pop()!;
+    items.push({ type: 'below', hotspot: top.hotspot, depth: top.depth + 1 });
+  }
+
+  return items;
+}
+
 export function StructurePane() {
   const proj = projection.value;
 
@@ -15,6 +63,10 @@ export function StructurePane() {
     list.push(h);
     hotspotsByParent.set(h.parent_id, list);
   }
+
+  const items = proj.nodes.length > 0
+    ? buildRenderItems(proj.nodes, hotspotsByParent)
+    : [];
 
   return (
     <div class="pane" data-testid="structure-pane">
@@ -29,28 +81,25 @@ export function StructurePane() {
             ))}
           </div>
         )}
-        {proj.nodes.map(node => {
-          const nodeHotspots = hotspotsByParent.get(node.id) ?? [];
+        {items.map(item => {
+          if (item.type === 'node') {
+            return (
+              <div key={item.node.id} class="structure-node" style={{ paddingLeft: `${item.node.depth * 1.2}rem` }}>
+                <span class={`node-label ${item.node.is_hole ? 'node-hole' : ''}`}>
+                  {item.node.label}
+                </span>
+                {item.hotspots.map(h => (
+                  <HotspotButton key={`${h.direction}-${h.parent_id}`} hotspot={h} />
+                ))}
+              </div>
+            );
+          }
           return (
-            <div key={node.id} class="structure-node" style={{ paddingLeft: `${node.depth * 1.2}rem` }}>
-              <span class={`node-label ${node.is_hole ? 'node-hole' : ''}`}>
-                {node.label}
-              </span>
-              {nodeHotspots.map(h => (
-                <HotspotButton key={`${h.direction}-${h.parent_id}`} hotspot={h} />
-              ))}
+            <div key={`below-${item.hotspot.parent_id}`} class="structure-node" style={{ paddingLeft: `${item.depth * 1.2}rem` }}>
+              <HotspotButton hotspot={item.hotspot} />
             </div>
           );
         })}
-        {/* Hotspots not tied to displayed nodes (e.g., Sequence below) */}
-        {proj.nodes.length > 0 && proj.hotspots
-          .filter(h => h.direction === 'below' && !proj.nodes.some(n => n.id === h.parent_id))
-          .map(h => (
-            <div key={`orphan-below-${h.parent_id}`} class="structure-node">
-              <HotspotButton hotspot={h} />
-            </div>
-          ))
-        }
 
         {popupState.value.step !== 'closed' && <NodePopup />}
       </div>

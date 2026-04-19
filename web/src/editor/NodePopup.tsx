@@ -73,7 +73,7 @@ function FieldsPanel() {
 
   const needsType = candidate === 'scalar' || candidate === 'array' || candidate === 'weighted-edge-list';
   const needsName = candidate === 'scalar' || candidate === 'array';
-  const needsLength = candidate === 'array' || candidate === 'query-list' || candidate === 'multi-testcase' || candidate === 'weighted-edge-list';
+  const needsLength = candidate === 'array' || candidate === 'query-list' || candidate === 'multi-testcase' || candidate === 'weighted-edge-list' || candidate === 'edge-list';
   const needsGridLength = candidate === 'grid-template';
   const needsCountExpr = candidate === 'edge-list';
   const needsWeightName = candidate === 'weighted-edge-list';
@@ -92,7 +92,7 @@ function FieldsPanel() {
       return;
     }
 
-    const countExpr = needsCountExpr ? getCountExprValue() : '';
+    const countExpr = needsCountExpr ? (getCountExprValue() || popupLengthVar.value) : '';
     const fill = buildFillFromPopup(
       candidate,
       popupName.value,

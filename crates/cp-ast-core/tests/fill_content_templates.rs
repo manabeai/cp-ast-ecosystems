@@ -117,9 +117,8 @@ fn weighted_edge_list_creates_repeat_with_triple() {
         panic!("Expected Repeat");
     }
 
-    // WeightedEdgeList via AddSlotElement does not auto-add constraints
-    // (TypeDecl constraint is only added by FillHole)
-    assert!(result.created_constraints.is_empty());
+    // WeightedEdgeList via AddSlotElement auto-adds TypeDecl for weight type
+    assert_eq!(result.created_constraints.len(), 1);
 }
 
 // ── QueryList ───────────────────────────────────────────────────────────
@@ -267,8 +266,8 @@ fn grid_template_creates_matrix() {
         panic!("Expected Matrix, got {:?}", matrix_node.kind());
     }
 
-    // GridTemplate via AddSlotElement does not auto-add constraints
-    assert!(result.created_constraints.is_empty());
+    // GridTemplate via AddSlotElement auto-adds TypeDecl for cell type
+    assert_eq!(result.created_constraints.len(), 1);
 }
 
 // ── Variant construction tests ──────────────────────────────────────────

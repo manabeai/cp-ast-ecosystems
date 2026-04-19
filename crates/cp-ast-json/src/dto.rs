@@ -379,6 +379,7 @@ pub enum ConstraintDefDto {
     Sorted { order: String },
     Property { tag: String },
     SumBound { over_var: String, upper: String },
+    CharSet { spec: String },
     Guarantee { description: String },
 }
 

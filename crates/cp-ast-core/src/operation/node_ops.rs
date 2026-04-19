@@ -54,6 +54,12 @@ impl AstEngine {
             node.set_kind(new_kind);
         }
 
+        // 5.5. Resolve Unresolved variable references in structure expressions
+        self.resolve_structure_references(target);
+        for &child_id in &created_nodes {
+            self.resolve_structure_references(child_id);
+        }
+
         Ok(ApplyResult {
             created_nodes,
             removed_nodes: vec![],
@@ -68,6 +74,7 @@ impl AstEngine {
     /// Returns `OperationError` if:
     /// - Parent node doesn't exist
     /// - Parent node doesn't have the specified slot
+    #[allow(clippy::too_many_lines)]
     pub(crate) fn add_slot_element(
         &mut self,
         parent: NodeId,
@@ -87,7 +94,26 @@ impl AstEngine {
         let new_node_id = self.structure.add_node(new_kind);
         created_nodes.push(new_node_id);
 
-        // 4. Get parent mutably and add to the correct slot
+        // 3.5. Resolve Unresolved variable references in structure expressions
+        self.resolve_structure_references(new_node_id);
+        for &child_id in &created_nodes {
+            self.resolve_structure_references(child_id);
+        }
+
+        // 4. Auto-add TypeDecl constraint if applicable
+        let mut created_constraints = Vec::new();
+        if let Some(expected_type) = var_type_to_expected_from_fill(element) {
+            let cid = self.constraints.add(
+                Some(new_node_id),
+                Constraint::TypeDecl {
+                    target: Reference::VariableRef(new_node_id),
+                    expected: expected_type,
+                },
+            );
+            created_constraints.push(cid);
+        }
+
+        // 5. Get parent mutably and add to the correct slot
         let parent_node = self
             .structure
             .get_mut(parent)
@@ -171,7 +197,7 @@ impl AstEngine {
         Ok(ApplyResult {
             created_nodes,
             removed_nodes: vec![],
-            created_constraints: vec![],
+            created_constraints,
             affected_constraints: vec![],
         })
     }
@@ -338,6 +364,12 @@ impl AstEngine {
         let new_node_id = self.structure.add_node(new_kind);
         created_nodes.push(new_node_id);
 
+        // Resolve Unresolved variable references in structure expressions
+        self.resolve_structure_references(new_node_id);
+        for &child_id in &created_nodes {
+            self.resolve_structure_references(child_id);
+        }
+
         // Auto-add TypeDecl constraint if applicable
         let mut created_constraints = Vec::new();
         if let Some(expected_type) = var_type_to_expected_from_fill(element) {
@@ -424,6 +456,12 @@ impl AstEngine {
         let new_kind = self.expand_fill_content(first_element, &mut created_nodes);
         let new_node_id = self.structure.add_node(new_kind);
         created_nodes.push(new_node_id);
+
+        // Resolve Unresolved variable references in structure expressions
+        self.resolve_structure_references(new_node_id);
+        for &child_id in &created_nodes {
+            self.resolve_structure_references(child_id);
+        }
 
         // Auto-add TypeDecl constraint if applicable
         let mut created_constraints = Vec::new();

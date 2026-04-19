@@ -135,6 +135,13 @@ fn generate_constraints(engine: &AstEngine) -> ProjectedConstraints {
     let mut nodes_with_charset: HashSet<NodeId> = HashSet::new();
 
     for (cid, constraint) in engine.constraints.iter() {
+        // TypeDecl constraints are internal bookkeeping — don't expose to the UI.
+        if matches!(constraint, Constraint::TypeDecl { .. }) {
+            // Still fall through to track nodes_with_range / nodes_with_charset
+            // (TypeDecl won't match those arms, so just continue)
+            continue;
+        }
+
         completed.push(CompletedConstraint {
             index: completed.len(),
             constraint_id: format!("c{}", cid.value()),

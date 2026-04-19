@@ -94,6 +94,8 @@ pub enum ConstraintDefKind {
     Property { tag: String },
     /// Sum bound across test cases.
     SumBound { over_var: String, upper: String },
+    /// Character set constraint.
+    CharSet { spec: String },
     /// Human-readable guarantee.
     Guarantee { description: String },
 }
