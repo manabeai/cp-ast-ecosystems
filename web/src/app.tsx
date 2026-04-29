@@ -3,7 +3,7 @@ import { currentPage } from './state';
 import { ViewerPage } from './components/viewer/ViewerPage';
 import { PreviewPage } from './components/preview/PreviewPage';
 import { EditorPage } from './editor/EditorPage';
-import { documentJson } from './editor/editor-state';
+import { documentJson, initEditor } from './editor/editor-state';
 
 const copyFeedback = signal<boolean>(false);
 
@@ -18,6 +18,10 @@ function handleCopyLink(): void {
     copyFeedback.value = true;
     setTimeout(() => { copyFeedback.value = false; }, 2000);
   }).catch(console.error);
+}
+
+function handleResetDocument(): void {
+  initEditor();
 }
 
 export function App() {
@@ -52,6 +56,13 @@ export function App() {
             onClick={handleCopyLink}
           >
             {copyFeedback.value ? '✓ Copied!' : '🔗 Copy Link'}
+          </button>
+          <button
+            class="copy-link-btn"
+            data-testid="reset-document-button"
+            onClick={handleResetDocument}
+          >
+            Reset
           </button>
         </nav>
       </header>

@@ -99,11 +99,28 @@ export interface ConstraintItem {
   constraint_id?: string;
   draft_index?: number;
   completed_index?: number;
+  edit?: ConstraintEditProjection;
 }
+
+export type ConstraintEditProjection =
+  | { kind: 'Range'; lower: string; upper: string; constraint_id?: string }
+  | { kind: 'CharSet'; charset: CharSetSpec; constraint_id?: string }
+  | { kind: 'StringLength'; min: string; max: string; constraint_id?: string };
+
+export type CharSetSpec =
+  | { kind: 'LowerAlpha' }
+  | { kind: 'UpperAlpha' }
+  | { kind: 'Alpha' }
+  | { kind: 'Digit' }
+  | { kind: 'AlphaNumeric' }
+  | { kind: 'Custom'; chars: string[] }
+  | { kind: 'Range'; from: string; to: string };
 
 export interface ExprCandidate {
   name: string;
   node_id: string;
+  value_type: 'number' | 'string' | 'char';
+  node_kind: 'scalar' | 'array' | 'matrix' | string;
 }
 
 export interface CompletenessSummary {
@@ -164,6 +181,7 @@ export const constraintsTexString = computed(() => {
 
 export const sampleText = computed(() => {
   if (!documentJson.value) return '';
+  if (projection.value.constraints.items.some(item => item.status === 'draft')) return '';
   return safeCall(() => generate_sample(documentJson.value, sampleSeed.value), '');
 });
 

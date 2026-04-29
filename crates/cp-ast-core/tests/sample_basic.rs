@@ -1990,3 +1990,68 @@ fn generate_char_matrix_respects_custom_charset() {
         assert!(line.chars().all(|c| c == '.' || c == '#'));
     }
 }
+
+#[test]
+fn constraint_expression_parser_handles_simple_var_arithmetic_for_samples() {
+    use cp_ast_core::operation::action::Action;
+    use cp_ast_core::operation::types::{ConstraintDef, ConstraintDefKind, FillContent, VarType};
+
+    let mut engine = AstEngine::new();
+    let root = engine.structure.root();
+    let n = *engine
+        .apply(&Action::AddSlotElement {
+            parent: root,
+            slot_name: "children".to_owned(),
+            element: FillContent::Scalar {
+                name: "N".to_owned(),
+                typ: VarType::Int,
+            },
+        })
+        .unwrap()
+        .created_nodes
+        .last()
+        .unwrap();
+    let m = engine
+        .apply(&Action::AddSibling {
+            target: n,
+            element: FillContent::Scalar {
+                name: "M".to_owned(),
+                typ: VarType::Int,
+            },
+        })
+        .unwrap()
+        .created_nodes
+        .iter()
+        .find(|id| {
+            engine.structure.get(**id).is_some_and(
+                |node| matches!(node.kind(), NodeKind::Scalar { name } if name.as_str() == "M"),
+            )
+        })
+        .copied()
+        .unwrap();
+
+    engine
+        .apply(&Action::AddConstraint {
+            target: n,
+            constraint: ConstraintDef {
+                kind: ConstraintDefKind::Range {
+                    lower: "1".to_owned(),
+                    upper: "3".to_owned(),
+                },
+            },
+        })
+        .unwrap();
+    engine
+        .apply(&Action::AddConstraint {
+            target: m,
+            constraint: ConstraintDef {
+                kind: ConstraintDefKind::Range {
+                    lower: "1".to_owned(),
+                    upper: "N+2".to_owned(),
+                },
+            },
+        })
+        .unwrap();
+
+    assert!(generate(&engine, 0).is_ok());
+}

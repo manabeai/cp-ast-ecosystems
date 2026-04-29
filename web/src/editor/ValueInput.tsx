@@ -21,14 +21,10 @@ interface ValueInputProps {
 export function ValueInput({ target, excludeNodeId }: ValueInputProps) {
   const proj = projection.value;
 
-  // Filter: exclude self, exclude non-scalar variables
+  // Filter: numeric scalar variables only, excluding self.
   const filteredVars = proj.available_vars.filter(v => {
-    // Exclude self variable
     if (excludeNodeId && v.node_id === excludeNodeId) return false;
-    // Check if this variable is a scalar (its node label matches its name exactly)
-    const node = proj.nodes.find(n => n.id === v.node_id);
-    if (node && node.label !== v.name) return false;  // non-scalar (array, etc.)
-    return true;
+    return v.value_type === 'number' && v.node_kind === 'scalar';
   });
 
   const handleLiteralConfirm = (value: string) => {

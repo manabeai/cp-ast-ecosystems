@@ -54,7 +54,7 @@ pub enum SortOrder {
 }
 
 /// Character set specification for string generation.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum CharSetSpec {
     LowerAlpha,
     UpperAlpha,

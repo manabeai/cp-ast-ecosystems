@@ -7,8 +7,7 @@
  *
  * Variant hotspots skip the wizard and go directly to the fields panel.
  */
-import { projection } from './editor-state';
-import { dispatchAction } from './editor-state';
+import { projection, dispatchAction, type ExprCandidate } from './editor-state';
 import {
   popupState,
   selectCandidate,
@@ -158,6 +157,7 @@ function FieldsPanel() {
   const candidate = state.candidate;
   const proj = projection.value;
   const availableVars = proj.available_vars;
+  const lengthVars = availableVars.filter(isIntScalarVar);
   const fields = state.hotspot.candidate_details.find(detail => detail.kind === candidate)?.fields ?? [];
   const hasField = (name: string) => fields.some(field => field.name === name);
   const hasFieldType = (fieldType: string) => fields.some(field => field.field_type === fieldType);
@@ -252,7 +252,7 @@ function FieldsPanel() {
           <LengthField
             value={popupLengthVar.value}
             onChange={(value) => { popupLengthVar.value = value; }}
-            availableVars={availableVars}
+            availableVars={lengthVars}
             testId="length-select"
           />
         </div>
@@ -265,7 +265,7 @@ function FieldsPanel() {
             <LengthField
               value={popupLengthVar.value}
               onChange={(value) => { popupLengthVar.value = value; }}
-              availableVars={availableVars}
+              availableVars={lengthVars}
               testId={!gridRowsSet ? 'length-select' : undefined}
             />
           </div>
@@ -274,7 +274,7 @@ function FieldsPanel() {
             <LengthField
               value={popupLengthVar2.value}
               onChange={(value) => { popupLengthVar2.value = value; }}
-              availableVars={availableVars}
+              availableVars={lengthVars}
               testId={gridRowsSet && !gridColsSet ? 'length-select' : undefined}
             />
           </div>
@@ -284,7 +284,7 @@ function FieldsPanel() {
       {needsCountExpr && (
         <div class="popup-field">
           <label>Count</label>
-          <CountField availableVars={availableVars} />
+          <CountField availableVars={lengthVars} />
         </div>
       )}
 
@@ -359,4 +359,8 @@ function LengthField({
       </select>
     </div>
   );
+}
+
+function isIntScalarVar(v: ExprCandidate): boolean {
+  return v.value_type === 'number' && v.node_kind === 'scalar';
 }

@@ -1,10 +1,11 @@
 use super::engine::AstEngine;
 use super::error::OperationError;
+use super::fill_hole::parse_length_expr;
 use super::result::ApplyResult;
 use super::types::{ConstraintDef, ConstraintDefKind, VarType};
 use crate::constraint::Expression;
 use crate::constraint::{Constraint, ConstraintId, ExpectedType};
-use crate::structure::{Ident, NodeId, NodeKind, Reference, StructureAst};
+use crate::structure::{NodeId, NodeKind, Reference, StructureAst};
 
 impl AstEngine {
     /// Add a constraint to a node.
@@ -121,11 +122,7 @@ fn convert_def_to_constraint(target: NodeId, kind: &ConstraintDefKind) -> Constr
 
 /// Simple expression parser: try to parse as i64, otherwise treat as unresolved reference.
 pub(super) fn parse_expression(s: &str) -> Expression {
-    if let Ok(n) = s.parse::<i64>() {
-        Expression::Lit(n)
-    } else {
-        Expression::Var(Reference::Unresolved(Ident::new(s)))
-    }
+    parse_length_expr(s)
 }
 
 // ── Reference resolution ───────────────────────────────────────────

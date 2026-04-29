@@ -116,6 +116,10 @@ export class EditorPage {
     await this.page.getByTestId('confirm-button').click();
   }
 
+  async closePopupByEscape(): Promise<void> {
+    await this.page.keyboard.press('Escape');
+  }
+
   /**
    * High-level helper: add a scalar variable to the structure.
    */

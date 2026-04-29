@@ -25,8 +25,8 @@ import {
 import type { ExprCandidate } from '../../src/editor/editor-state';
 
 const VARS: ExprCandidate[] = [
-  { name: 'N', node_id: '1' },
-  { name: 'M', node_id: '2' },
+  { name: 'N', node_id: '1', value_type: 'number', node_kind: 'scalar' },
+  { name: 'M', node_id: '2', value_type: 'number', node_kind: 'scalar' },
 ];
 
 describe('FillContent builders', () => {

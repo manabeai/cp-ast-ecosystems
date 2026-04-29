@@ -146,7 +146,11 @@ test.describe('グリッド: H W / S_1...S_H', () => {
     await editor.fillBoundLiteral('lower', '1');
     await editor.fillBoundLiteral('upper', '500');
     await editor.confirmConstraint();
-    // charset は既に設定済みと仮定
+
+    // S: 英小文字
+    await editor.openDraft(0);
+    await editor.page.getByTestId('charset-option-lowercase').click();
+    await editor.confirmConstraint();
 
     // 右ペイン TeX 入力形式にグリッド要素
     await expect(editor.getTexInputFormat()).toContainText('H');

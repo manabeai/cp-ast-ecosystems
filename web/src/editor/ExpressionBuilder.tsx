@@ -79,6 +79,7 @@ interface CountFieldProps {
 export function CountField({ availableVars }: CountFieldProps) {
   const state = countExprState.value;
   const value = getCountExprValue();
+  const countVars = availableVars.filter(v => v.value_type === 'number' && v.node_kind === 'scalar');
 
   return (
     <div class="count-field-container">
@@ -103,7 +104,7 @@ export function CountField({ availableVars }: CountFieldProps) {
         )}
       </div>
       <div class="length-var-options">
-        {availableVars.map(v => (
+        {countVars.map(v => (
           <button
             key={v.name}
             type="button"

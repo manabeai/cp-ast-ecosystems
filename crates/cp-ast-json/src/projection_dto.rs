@@ -1,17 +1,18 @@
 //! One-way conversion from `FullProjection` → `FullProjectionDto`.
 
+use cp_ast_core::constraint::CharSetSpec;
 use cp_ast_core::projection::types::{
-    CandidateField, CompletedConstraint, CompletenessSummary, ConstraintItem, ConstraintItemStatus,
-    DraftConstraint, ExprCandidate, FullProjection, HoleCandidateDetail, Hotspot, HotspotAction,
-    HotspotActionKind, HotspotDirection, NodeEditProjection, ProjectedConstraints, ProjectedNode,
-    StructureLine,
+    CandidateField, CompletedConstraint, CompletenessSummary, ConstraintEditProjection,
+    ConstraintItem, ConstraintItemStatus, DraftConstraint, ExprCandidate, FullProjection,
+    HoleCandidateDetail, Hotspot, HotspotAction, HotspotActionKind, HotspotDirection,
+    NodeEditProjection, ProjectedConstraints, ProjectedNode, StructureLine,
 };
 
 use crate::dto::{
-    CandidateFieldDto, CompletedConstraintDto, CompletenessSummaryDto, ConstraintItemDto,
-    DraftConstraintDto, ExprCandidateDto, FullProjectionDto, HoleCandidateDetailDto,
-    HotspotActionDto, HotspotDto, NodeEditProjectionDto, ProjectedConstraintsDto, ProjectedNodeDto,
-    StructureLineDto,
+    CandidateFieldDto, CharSetSpecDto, CompletedConstraintDto, CompletenessSummaryDto,
+    ConstraintEditProjectionDto, ConstraintItemDto, DraftConstraintDto, ExprCandidateDto,
+    FullProjectionDto, HoleCandidateDetailDto, HotspotActionDto, HotspotDto, NodeEditProjectionDto,
+    ProjectedConstraintsDto, ProjectedNodeDto, StructureLineDto,
 };
 use crate::error::ConversionError;
 
@@ -164,6 +165,37 @@ fn constraint_item_to_dto(item: &ConstraintItem) -> ConstraintItemDto {
         constraint_id: item.constraint_id.clone(),
         draft_index: item.draft_index,
         completed_index: item.completed_index,
+        edit: item.edit.as_ref().map(constraint_edit_to_dto),
+    }
+}
+
+fn constraint_edit_to_dto(edit: &ConstraintEditProjection) -> ConstraintEditProjectionDto {
+    match edit {
+        ConstraintEditProjection::Range {
+            lower,
+            upper,
+            constraint_id,
+        } => ConstraintEditProjectionDto::Range {
+            lower: lower.clone(),
+            upper: upper.clone(),
+            constraint_id: constraint_id.clone(),
+        },
+        ConstraintEditProjection::CharSet {
+            charset,
+            constraint_id,
+        } => ConstraintEditProjectionDto::CharSet {
+            charset: charset_spec_to_dto(charset),
+            constraint_id: constraint_id.clone(),
+        },
+        ConstraintEditProjection::StringLength {
+            min,
+            max,
+            constraint_id,
+        } => ConstraintEditProjectionDto::StringLength {
+            min: min.clone(),
+            max: max.clone(),
+            constraint_id: constraint_id.clone(),
+        },
     }
 }
 
@@ -189,6 +221,25 @@ fn expr_candidate_to_dto(ec: &ExprCandidate) -> ExprCandidateDto {
     ExprCandidateDto {
         name: ec.name.clone(),
         node_id: ec.node_id.value().to_string(),
+        value_type: ec.value_type.clone(),
+        node_kind: ec.node_kind.clone(),
+    }
+}
+
+fn charset_spec_to_dto(charset: &CharSetSpec) -> CharSetSpecDto {
+    match charset {
+        CharSetSpec::LowerAlpha => CharSetSpecDto::LowerAlpha,
+        CharSetSpec::UpperAlpha => CharSetSpecDto::UpperAlpha,
+        CharSetSpec::Alpha => CharSetSpecDto::Alpha,
+        CharSetSpec::Digit => CharSetSpecDto::Digit,
+        CharSetSpec::AlphaNumeric => CharSetSpecDto::AlphaNumeric,
+        CharSetSpec::Custom(chars) => CharSetSpecDto::Custom {
+            chars: chars.clone(),
+        },
+        CharSetSpec::Range(from, to) => CharSetSpecDto::Range {
+            from: *from,
+            to: *to,
+        },
     }
 }
 

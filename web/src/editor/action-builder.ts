@@ -4,7 +4,7 @@
  * Maps UI popup state → Action JSON string for `apply_action()`.
  */
 
-import type { Hotspot, ExprCandidate } from './editor-state';
+import type { Hotspot, ExprCandidate, CharSetSpec } from './editor-state';
 
 // ── Type mapping ───────────────────────────────────────────────────
 
@@ -213,15 +213,6 @@ export function buildAddConstraintSumBound(
     constraint: { kind: 'SumBound', over_var: overVar, upper },
   });
 }
-
-export type CharSetSpec =
-  | { kind: 'LowerAlpha' }
-  | { kind: 'UpperAlpha' }
-  | { kind: 'Alpha' }
-  | { kind: 'Digit' }
-  | { kind: 'AlphaNumeric' }
-  | { kind: 'Custom'; chars: string[] }
-  | { kind: 'Range'; from: string; to: string };
 
 export function buildAddConstraintCharSet(targetId: string, charset: CharSetSpec): string {
   return JSON.stringify({

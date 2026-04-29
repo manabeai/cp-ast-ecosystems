@@ -490,6 +490,26 @@ pub struct ConstraintItemDto {
     pub constraint_id: Option<String>,
     pub draft_index: Option<usize>,
     pub completed_index: Option<usize>,
+    pub edit: Option<ConstraintEditProjectionDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind")]
+pub enum ConstraintEditProjectionDto {
+    Range {
+        lower: String,
+        upper: String,
+        constraint_id: Option<String>,
+    },
+    CharSet {
+        charset: CharSetSpecDto,
+        constraint_id: Option<String>,
+    },
+    StringLength {
+        min: String,
+        max: String,
+        constraint_id: Option<String>,
+    },
 }
 
 /// An unfilled constraint generated on-the-fly by projection.
@@ -515,6 +535,8 @@ pub struct CompletedConstraintDto {
 pub struct ExprCandidateDto {
     pub name: String,
     pub node_id: String,
+    pub value_type: String,
+    pub node_kind: String,
 }
 
 /// Summary of AST completeness and satisfaction status.

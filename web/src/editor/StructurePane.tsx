@@ -189,6 +189,7 @@ function NodeInlineEdit({ nodeId }: { nodeId: string; currentLabel: string }) {
   const name = nodeEditName.value;
   const kind = nodeEditKind.value;
   const length = nodeEditLength.value;
+  const lengthVars = proj.available_vars.filter(v => v.value_type === 'number' && v.node_kind === 'scalar');
   
   const handleConfirm = () => {
     if (name.trim() && (kind === 'scalar' || length.trim())) {
@@ -201,44 +202,55 @@ function NodeInlineEdit({ nodeId }: { nodeId: string; currentLabel: string }) {
   };
   
   return (
-    <span class="node-inline-edit node-edit-panel">
-      <select
-        class="node-edit-kind-select"
-        data-testid="node-edit-kind-select"
-        value={kind}
-        onChange={(e) => { nodeEditKind.value = (e.target as HTMLSelectElement).value as 'scalar' | 'array'; }}
-      >
-        {projection.value.nodes.find(node => node.id === nodeId)?.edit?.allowed_kinds.map(allowed => (
-          <option key={allowed} value={allowed}>{allowed === 'scalar' ? 'Scalar' : 'Array'}</option>
-        ))}
-      </select>
-      <select
-        class="node-edit-type-select"
-        data-testid="node-edit-type-select"
-        value={nodeEditType.value}
-        onChange={(e) => { nodeEditType.value = (e.target as HTMLSelectElement).value; }}
-      >
-        {projection.value.nodes.find(node => node.id === nodeId)?.edit?.allowed_types.map(allowed => (
-          <option key={allowed} value={allowed}>
-            {allowed === 'number' ? 'Number' : allowed === 'char' ? 'Char' : 'String'}
-          </option>
-        ))}
-      </select>
-      <input
-        type="text"
-        class="node-edit-input"
-        data-testid="node-edit-input"
-        value={name}
-        onInput={(e) => { nodeEditName.value = (e.target as HTMLInputElement).value; }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') handleConfirm();
-          if (e.key === 'Escape') closeNodeEdit();
-        }}
-        autoFocus
-      />
+    <span class="node-inline-edit node-popup">
+      <span class="popup-fields">
+        <span class="popup-field">
+          <label>Kind</label>
+          <select
+            class="node-edit-kind-select"
+            data-testid="node-edit-kind-select"
+            value={kind}
+            onChange={(e) => { nodeEditKind.value = (e.target as HTMLSelectElement).value as 'scalar' | 'array'; }}
+          >
+            {projection.value.nodes.find(node => node.id === nodeId)?.edit?.allowed_kinds.map(allowed => (
+              <option key={allowed} value={allowed}>{allowed === 'scalar' ? 'Scalar' : 'Array'}</option>
+            ))}
+          </select>
+        </span>
+        <span class="popup-field">
+          <label>Type</label>
+          <select
+            class="node-edit-type-select"
+            data-testid="node-edit-type-select"
+            value={nodeEditType.value}
+            onChange={(e) => { nodeEditType.value = (e.target as HTMLSelectElement).value; }}
+          >
+            {projection.value.nodes.find(node => node.id === nodeId)?.edit?.allowed_types.map(allowed => (
+              <option key={allowed} value={allowed}>
+                {allowed === 'number' ? 'Number' : allowed === 'char' ? 'Char' : 'String'}
+              </option>
+            ))}
+          </select>
+        </span>
+        <span class="popup-field">
+          <label>Name</label>
+          <input
+            type="text"
+            class="node-edit-input"
+            data-testid="node-edit-input"
+            value={name}
+            onInput={(e) => { nodeEditName.value = (e.target as HTMLInputElement).value; }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleConfirm();
+              if (e.key === 'Escape') closeNodeEdit();
+            }}
+            autoFocus
+          />
+        </span>
       {kind === 'array' && (
-        <span class="node-edit-length">
-          {proj.available_vars.map(v => (
+        <span class="popup-field node-edit-length">
+          <label>Length</label>
+          {lengthVars.map(v => (
             <button
               key={v.node_id}
               class={`length-var-option ${length === v.name ? 'active' : ''}`}
@@ -259,7 +271,7 @@ function NodeInlineEdit({ nodeId }: { nodeId: string; currentLabel: string }) {
         </span>
       )}
       <button
-        class="node-edit-confirm"
+        class="popup-confirm node-edit-confirm"
         data-testid="node-edit-confirm"
         disabled={!name.trim() || (kind === 'array' && !length.trim())}
         onClick={handleConfirm}
@@ -268,6 +280,7 @@ function NodeInlineEdit({ nodeId }: { nodeId: string; currentLabel: string }) {
         Confirm
       </button>
       <button class="node-edit-cancel" onClick={closeNodeEdit} type="button">Cancel</button>
+      </span>
     </span>
   );
 }

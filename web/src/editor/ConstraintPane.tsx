@@ -8,7 +8,7 @@
  * - Constraint deletion and re-editing
  */
 import { signal } from '@preact/signals';
-import { projection, dispatchAction } from './editor-state';
+import { projection, dispatchAction, type CharSetSpec } from './editor-state';
 import {
   constraintEditState,
   openConstraintEditor,
@@ -25,7 +25,6 @@ import {
   customCharSetChars,
 } from './popup-state';
 import {
-  type CharSetSpec,
   buildAddConstraintRange,
   buildAddConstraintStringLength,
   buildAddConstraintProperty,
@@ -47,6 +46,9 @@ export function ConstraintPane() {
 
   const handleRangeConfirm = (lower: string, upper: string) => {
     if (editState.step === 'editing') {
+      if (editState.constraintId) {
+        dispatchAction(buildRemoveConstraint(editState.constraintId));
+      }
       const actionJson = editState.template === 'StringLength'
         ? buildAddConstraintStringLength(editState.targetId, lower, upper)
         : buildAddConstraintRange(editState.targetId, lower, upper);
@@ -75,6 +77,9 @@ export function ConstraintPane() {
 
   const handleCharSetConfirm = () => {
     if (editState.step === 'charset' && charSetSelection.value) {
+      if (editState.constraintId) {
+        dispatchAction(buildRemoveConstraint(editState.constraintId));
+      }
       let charset: CharSetSpec;
       if (charSetSelection.value === 'Custom') {
         // Build custom charset from individual chars
@@ -136,9 +141,9 @@ export function ConstraintPane() {
             data-testid={`constraint-item-${item.index}`}
             data-constraint-status={item.status}
             onClick={() => {
-              if (item.status !== 'draft' || !item.template) return;
+              if (!item.edit) return;
               showPropertyOptions.value = false;
-              openConstraintEditor(item.target_id, item.target_name, item.template);
+              openConstraintEditor(item.target_id, item.target_name, item.edit.kind, item.edit);
             }}
           >
             <span class="constraint-icon">{item.status === 'draft' ? '○' : '●'}</span>

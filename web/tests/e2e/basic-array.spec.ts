@@ -45,8 +45,8 @@ test.describe('基本配列: N + A_1...A_N', () => {
     // 右ペイン TeX 入力形式に N が表示される
     await expect(editor.getTexInputFormat()).toContainText('N');
 
-    // sample が生成される（空でない）
-    await expect(editor.getSampleOutput()).not.toBeEmpty();
+    // draft constraint が残っている間は sample は生成しない
+    await expect(editor.getSampleOutput()).toBeEmpty();
   });
 
   test('scalar N の後に横配列 A を追加する', async () => {
@@ -63,8 +63,8 @@ test.describe('基本配列: N + A_1...A_N', () => {
     // 右ペイン TeX 入力形式に A が表示
     await expect(editor.getTexInputFormat()).toContainText('A');
 
-    // sample が 2 行以上
-    await expectSampleLines(editor, 2);
+    // draft constraint が残っている間は sample は生成しない
+    await expect(editor.getSampleOutput()).toBeEmpty();
   });
 
   test('N の右に横配列 A を追加すると同じ Structure 行に表示される', async () => {

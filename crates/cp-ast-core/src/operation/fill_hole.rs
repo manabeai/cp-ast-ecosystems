@@ -233,7 +233,7 @@ fn length_spec_to_expression(spec: &LengthSpec) -> Expression {
 ///
 /// Handles patterns like "N-1", "N+1", "2*N", or falls back to
 /// a simple literal or unresolved variable reference.
-fn parse_length_expr(s: &str) -> Expression {
+pub(super) fn parse_length_expr(s: &str) -> Expression {
     // Try integer literal first
     if let Ok(n) = s.parse::<i64>() {
         return Expression::Lit(n);

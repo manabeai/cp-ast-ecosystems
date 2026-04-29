@@ -4,7 +4,7 @@
  * Manages node creation wizards, constraint editing, and expression building.
  */
 import { signal } from '@preact/signals';
-import type { Hotspot, ExprCandidate, ProjectedNode } from './editor-state';
+import type { Hotspot, ExprCandidate, ProjectedNode, ConstraintEditProjection } from './editor-state';
 
 // ── Node Popup State ───────────────────────────────────────────────
 
@@ -128,9 +128,9 @@ export function applyCountFnOperand(operand: string): void {
 
 export type ConstraintEditPhase =
   | { step: 'closed' }
-  | { step: 'editing'; targetId: string; targetName: string; template: string }
+  | { step: 'editing'; targetId: string; targetName: string; template: string; constraintId?: string }
   | { step: 'sumbound' }
-  | { step: 'charset'; targetId: string; targetName: string };
+  | { step: 'charset'; targetId: string; targetName: string; constraintId?: string };
 
 export const constraintEditState = signal<ConstraintEditPhase>({ step: 'closed' });
 
@@ -194,18 +194,36 @@ export function applyBoundFnOperand(operand: string): void {
 export const charSetSelection = signal('');
 export const customCharSetChars = signal<string[]>(['']);
 
-export function openConstraintEditor(targetId: string, targetName: string, template: string): void {
+export function openConstraintEditor(
+  targetId: string,
+  targetName: string,
+  template: string,
+  edit?: ConstraintEditProjection,
+): void {
   if (template === 'CharSet') {
-    constraintEditState.value = { step: 'charset', targetId, targetName };
-    charSetSelection.value = '';
-    customCharSetChars.value = [''];
+    constraintEditState.value = { step: 'charset', targetId, targetName, constraintId: edit?.constraint_id };
+    if (edit?.kind === 'CharSet') {
+      charSetSelection.value = edit.charset.kind;
+      customCharSetChars.value = edit.charset.kind === 'Custom' ? edit.charset.chars : [''];
+    } else {
+      charSetSelection.value = '';
+      customCharSetChars.value = [''];
+    }
   } else {
-    constraintEditState.value = { step: 'editing', targetId, targetName, template };
+    constraintEditState.value = { step: 'editing', targetId, targetName, template, constraintId: edit?.constraint_id };
   }
-  constraintLower.value = '';
-  constraintUpper.value = '';
+  constraintLower.value = edit?.kind === 'Range'
+    ? edit.lower
+    : edit?.kind === 'StringLength'
+      ? edit.min
+      : '';
+  constraintUpper.value = edit?.kind === 'Range'
+    ? edit.upper
+    : edit?.kind === 'StringLength'
+      ? edit.max
+      : '';
   boundExprState.value = { step: 'idle' };
-  valueInputState.value = template === 'CharSet'
+  valueInputState.value = template === 'CharSet' || constraintLower.value
     ? { step: 'closed' }
     : { step: 'open', target: 'lower' };
 }

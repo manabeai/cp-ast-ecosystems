@@ -108,6 +108,27 @@ pub struct ConstraintItem {
     pub constraint_id: Option<String>,
     pub draft_index: Option<usize>,
     pub completed_index: Option<usize>,
+    pub edit: Option<ConstraintEditProjection>,
+}
+
+/// Structured edit state for a constraint row.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(tag = "kind")]
+pub enum ConstraintEditProjection {
+    Range {
+        lower: String,
+        upper: String,
+        constraint_id: Option<String>,
+    },
+    CharSet {
+        charset: crate::constraint::CharSetSpec,
+        constraint_id: Option<String>,
+    },
+    StringLength {
+        min: String,
+        max: String,
+        constraint_id: Option<String>,
+    },
 }
 
 /// Whether a projected constraint row is still draft or already completed.
@@ -179,6 +200,8 @@ pub struct CompletedConstraint {
 pub struct ExprCandidate {
     pub name: String,
     pub node_id: NodeId,
+    pub value_type: String,
+    pub node_kind: String,
 }
 
 /// Detailed candidate info for hole filling.

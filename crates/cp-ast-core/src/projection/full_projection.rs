@@ -8,9 +8,10 @@ use std::collections::HashSet;
 use super::api::ProjectionAPI;
 use super::projection_impl::make_label;
 use super::types::{
-    CandidateField, CompletedConstraint, ConstraintItem, ConstraintItemStatus, DraftConstraint,
-    ExprCandidate, FullProjection, HoleCandidateDetail, Hotspot, HotspotAction, HotspotActionKind,
-    HotspotDirection, NodeEditProjection, ProjectedConstraints, ProjectedNode, StructureLine,
+    CandidateField, CompletedConstraint, ConstraintEditProjection, ConstraintItem,
+    ConstraintItemStatus, DraftConstraint, ExprCandidate, FullProjection, HoleCandidateDetail,
+    Hotspot, HotspotAction, HotspotActionKind, HotspotDirection, NodeEditProjection,
+    ProjectedConstraints, ProjectedNode, StructureLine,
 };
 use crate::constraint::{Constraint, ExpectedType, Expression};
 use crate::operation::AstEngine;
@@ -417,6 +418,7 @@ struct CompletedRow {
     node_name: String,
     kind: SlotKind,
     constraint: CompletedConstraint,
+    edit: Option<ConstraintEditProjection>,
 }
 
 #[allow(clippy::too_many_lines)]
@@ -435,7 +437,7 @@ fn generate_constraints(engine: &AstEngine) -> ProjectedConstraints {
 
         let completed_constraint = CompletedConstraint {
             index: completed.len(),
-            constraint_id: format!("c{}", cid.value()),
+            constraint_id: cid.value().to_string(),
             display: format_constraint_display(constraint, engine),
         };
 
@@ -446,6 +448,11 @@ fn generate_constraints(engine: &AstEngine) -> ProjectedConstraints {
                 node_name: ref_to_name(&Reference::VariableRef(node_id), engine),
                 kind,
                 constraint: completed_constraint.clone(),
+                edit: constraint_edit_projection(
+                    constraint,
+                    engine,
+                    Some(completed_constraint.constraint_id.clone()),
+                ),
             });
         }
         completed.push(completed_constraint);
@@ -539,6 +546,7 @@ fn generate_constraints(engine: &AstEngine) -> ProjectedConstraints {
             constraint_id: Some(row.constraint.constraint_id.clone()),
             draft_index: None,
             completed_index: Some(row.constraint.index),
+            edit: row.edit.clone(),
         });
     }
 
@@ -577,6 +585,7 @@ fn push_constraint_slot(
             constraint_id: Some(completed.constraint_id.clone()),
             draft_index: None,
             completed_index: Some(completed.index),
+            edit: row.edit.clone(),
         });
         return;
     }
@@ -599,7 +608,52 @@ fn push_constraint_slot(
         constraint_id: None,
         draft_index: Some(draft.index),
         completed_index: None,
+        edit: draft_constraint_edit(template),
     });
+}
+
+fn draft_constraint_edit(template: &str) -> Option<ConstraintEditProjection> {
+    match template {
+        "Range" => Some(ConstraintEditProjection::Range {
+            lower: String::new(),
+            upper: String::new(),
+            constraint_id: None,
+        }),
+        "CharSet" => Some(ConstraintEditProjection::CharSet {
+            charset: crate::constraint::CharSetSpec::LowerAlpha,
+            constraint_id: None,
+        }),
+        "StringLength" => Some(ConstraintEditProjection::StringLength {
+            min: String::new(),
+            max: String::new(),
+            constraint_id: None,
+        }),
+        _ => None,
+    }
+}
+
+fn constraint_edit_projection(
+    constraint: &Constraint,
+    engine: &AstEngine,
+    constraint_id: Option<String>,
+) -> Option<ConstraintEditProjection> {
+    match constraint {
+        Constraint::Range { lower, upper, .. } => Some(ConstraintEditProjection::Range {
+            lower: format_expr_with_names(lower, engine),
+            upper: format_expr_with_names(upper, engine),
+            constraint_id,
+        }),
+        Constraint::CharSet { charset, .. } => Some(ConstraintEditProjection::CharSet {
+            charset: charset.clone(),
+            constraint_id,
+        }),
+        Constraint::StringLength { min, max, .. } => Some(ConstraintEditProjection::StringLength {
+            min: format_expr_with_names(min, engine),
+            max: format_expr_with_names(max, engine),
+            constraint_id,
+        }),
+        _ => None,
+    }
 }
 
 fn expected_type(engine: &AstEngine, node_id: NodeId) -> Option<ExpectedType> {
@@ -650,16 +704,25 @@ fn constraint_slot_kind(constraint: &Constraint) -> SlotKind {
 fn collect_available_vars(engine: &AstEngine) -> Vec<ExprCandidate> {
     let mut vars = Vec::new();
     for node in engine.structure.iter() {
-        let name = match node.kind() {
-            NodeKind::Scalar { name }
-            | NodeKind::Array { name, .. }
-            | NodeKind::Matrix { name, .. } => Some(name),
-            _ => None,
+        let (name, node_kind) = match node.kind() {
+            NodeKind::Scalar { name } => (Some(name), "scalar"),
+            NodeKind::Array { name, .. } => (Some(name), "array"),
+            NodeKind::Matrix { name, .. } => (Some(name), "matrix"),
+            _ => (None, "other"),
         };
         if let Some(name) = name {
+            let value_type = expected_type(engine, node.id())
+                .map_or("number", |typ| match typ {
+                    ExpectedType::Int => "number",
+                    ExpectedType::Str => "string",
+                    ExpectedType::Char => "char",
+                })
+                .to_owned();
             vars.push(ExprCandidate {
                 name: name.as_str().to_owned(),
                 node_id: node.id(),
+                value_type,
+                node_kind: node_kind.to_owned(),
             });
         }
     }
