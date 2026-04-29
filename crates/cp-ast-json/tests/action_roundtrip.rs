@@ -353,6 +353,28 @@ fn add_constraint_string_length_roundtrip() {
 }
 
 #[test]
+fn add_constraint_charset_roundtrip_uses_structured_charset() {
+    use cp_ast_core::constraint::CharSetSpec;
+
+    let action = Action::AddConstraint {
+        target: NodeId::from_raw(0),
+        constraint: ConstraintDef {
+            kind: ConstraintDefKind::CharSet {
+                charset: CharSetSpec::Custom(vec!['.', '#']),
+            },
+        },
+    };
+    let json = serialize_action(&action).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(parsed["constraint"]["kind"], "CharSet");
+    assert_eq!(parsed["constraint"]["charset"]["kind"], "Custom");
+    assert!(parsed["constraint"]["spec"].is_null());
+
+    let restored = deserialize_action(&json).unwrap();
+    assert_eq!(action, restored);
+}
+
+#[test]
 fn projection_serializes_to_json() {
     use cp_ast_core::operation::engine::AstEngine;
     use cp_ast_core::projection::project_full;

@@ -1,14 +1,16 @@
 //! One-way conversion from `FullProjection` → `FullProjectionDto`.
 
 use cp_ast_core::projection::types::{
-    CompletedConstraint, CompletenessSummary, ConstraintItem, ConstraintItemStatus,
-    DraftConstraint, ExprCandidate, FullProjection, Hotspot, HotspotDirection,
-    ProjectedConstraints, ProjectedNode, StructureLine,
+    CandidateField, CompletedConstraint, CompletenessSummary, ConstraintItem, ConstraintItemStatus,
+    DraftConstraint, ExprCandidate, FullProjection, HoleCandidateDetail, Hotspot, HotspotAction,
+    HotspotActionKind, HotspotDirection, NodeEditProjection, ProjectedConstraints, ProjectedNode,
+    StructureLine,
 };
 
 use crate::dto::{
-    CompletedConstraintDto, CompletenessSummaryDto, ConstraintItemDto, DraftConstraintDto,
-    ExprCandidateDto, FullProjectionDto, HotspotDto, ProjectedConstraintsDto, ProjectedNodeDto,
+    CandidateFieldDto, CompletedConstraintDto, CompletenessSummaryDto, ConstraintItemDto,
+    DraftConstraintDto, ExprCandidateDto, FullProjectionDto, HoleCandidateDetailDto,
+    HotspotActionDto, HotspotDto, NodeEditProjectionDto, ProjectedConstraintsDto, ProjectedNodeDto,
     StructureLineDto,
 };
 use crate::error::ConversionError;
@@ -56,6 +58,18 @@ fn projected_node_to_dto(node: &ProjectedNode) -> ProjectedNodeDto {
         label: node.label.clone(),
         depth: node.depth,
         is_hole: node.is_hole,
+        edit: node.edit.as_ref().map(node_edit_to_dto),
+    }
+}
+
+fn node_edit_to_dto(edit: &NodeEditProjection) -> NodeEditProjectionDto {
+    NodeEditProjectionDto {
+        kind: edit.kind.clone(),
+        name: edit.name.clone(),
+        value_type: edit.value_type.clone(),
+        length_expr: edit.length_expr.clone(),
+        allowed_kinds: edit.allowed_kinds.clone(),
+        allowed_types: edit.allowed_types.clone(),
     }
 }
 
@@ -64,6 +78,53 @@ fn hotspot_to_dto(hs: &Hotspot) -> HotspotDto {
         parent_id: hs.parent_id.value().to_string(),
         direction: hotspot_direction_str(hs.direction),
         candidates: hs.candidates.clone(),
+        candidate_details: hs
+            .candidate_details
+            .iter()
+            .map(candidate_detail_to_dto)
+            .collect(),
+        action: hotspot_action_to_dto(&hs.action),
+    }
+}
+
+fn hotspot_action_to_dto(action: &HotspotAction) -> HotspotActionDto {
+    HotspotActionDto {
+        kind: hotspot_action_kind_str(action.kind),
+        target_id: action.target_id.value().to_string(),
+        slot_name: action.slot_name.clone(),
+    }
+}
+
+fn hotspot_action_kind_str(kind: HotspotActionKind) -> String {
+    match kind {
+        HotspotActionKind::AddSlotElement => "add_slot_element",
+        HotspotActionKind::AddSibling => "add_sibling",
+        HotspotActionKind::FillHole => "fill_hole",
+        HotspotActionKind::AddChoiceVariant => "add_choice_variant",
+    }
+    .to_owned()
+}
+
+fn candidate_detail_to_dto(candidate: &HoleCandidateDetail) -> HoleCandidateDetailDto {
+    HoleCandidateDetailDto {
+        kind: candidate.kind.clone(),
+        label: candidate.label.clone(),
+        fields: candidate
+            .fields
+            .iter()
+            .map(candidate_field_to_dto)
+            .collect(),
+    }
+}
+
+fn candidate_field_to_dto(field: &CandidateField) -> CandidateFieldDto {
+    CandidateFieldDto {
+        name: field.name.clone(),
+        field_type: field.field_type.clone(),
+        label: field.label.clone(),
+        required: field.required,
+        options: field.options.clone(),
+        default_value: field.default_value.clone(),
     }
 }
 

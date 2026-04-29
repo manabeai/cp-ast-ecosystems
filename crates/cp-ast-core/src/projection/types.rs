@@ -9,6 +9,18 @@ pub struct ProjectedNode {
     pub label: String,
     pub depth: usize,
     pub is_hole: bool,
+    pub edit: Option<NodeEditProjection>,
+}
+
+/// Semantic edit metadata for a projected structure node.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct NodeEditProjection {
+    pub kind: String,
+    pub name: String,
+    pub value_type: String,
+    pub length_expr: Option<String>,
+    pub allowed_kinds: Vec<String>,
+    pub allowed_types: Vec<String>,
 }
 
 /// A named slot entry representing a child relationship.
@@ -112,6 +124,26 @@ pub struct Hotspot {
     pub parent_id: NodeId,
     pub direction: HotspotDirection,
     pub candidates: Vec<String>,
+    pub candidate_details: Vec<HoleCandidateDetail>,
+    pub action: HotspotAction,
+}
+
+/// Declarative action routing for a hotspot.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct HotspotAction {
+    pub kind: HotspotActionKind,
+    pub target_id: NodeId,
+    pub slot_name: Option<String>,
+}
+
+/// Which high-level action a hotspot should dispatch.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HotspotActionKind {
+    AddSlotElement,
+    AddSibling,
+    FillHole,
+    AddChoiceVariant,
 }
 
 /// Direction of a hotspot insertion.
@@ -162,6 +194,8 @@ pub struct HoleCandidateDetail {
 pub struct CandidateField {
     pub name: String,
     pub field_type: String,
+    pub label: String,
+    pub required: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub options: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]

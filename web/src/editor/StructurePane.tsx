@@ -169,8 +169,8 @@ function StructureNodeView({ node, hotspots }: { node: ProjectedNode; hotspots: 
         <span
           class={`node-label ${node.is_hole ? 'node-hole' : 'node-editable'}`}
           onClick={() => {
-            if (!node.is_hole) {
-              openNodeEdit(node.id, node.label);
+            if (node.edit) {
+              openNodeEdit(node);
             }
           }}
         >
@@ -208,8 +208,9 @@ function NodeInlineEdit({ nodeId }: { nodeId: string; currentLabel: string }) {
         value={kind}
         onChange={(e) => { nodeEditKind.value = (e.target as HTMLSelectElement).value as 'scalar' | 'array'; }}
       >
-        <option value="scalar">Scalar</option>
-        <option value="array">Array</option>
+        {projection.value.nodes.find(node => node.id === nodeId)?.edit?.allowed_kinds.map(allowed => (
+          <option key={allowed} value={allowed}>{allowed === 'scalar' ? 'Scalar' : 'Array'}</option>
+        ))}
       </select>
       <select
         class="node-edit-type-select"
@@ -217,9 +218,11 @@ function NodeInlineEdit({ nodeId }: { nodeId: string; currentLabel: string }) {
         value={nodeEditType.value}
         onChange={(e) => { nodeEditType.value = (e.target as HTMLSelectElement).value; }}
       >
-        <option value="number">Number</option>
-        <option value="char">Char</option>
-        <option value="string">String</option>
+        {projection.value.nodes.find(node => node.id === nodeId)?.edit?.allowed_types.map(allowed => (
+          <option key={allowed} value={allowed}>
+            {allowed === 'number' ? 'Number' : allowed === 'char' ? 'Char' : 'String'}
+          </option>
+        ))}
       </select>
       <input
         type="text"

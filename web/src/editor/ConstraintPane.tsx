@@ -25,6 +25,7 @@ import {
   customCharSetChars,
 } from './popup-state';
 import {
+  type CharSetSpec,
   buildAddConstraintRange,
   buildAddConstraintStringLength,
   buildAddConstraintProperty,
@@ -74,14 +75,16 @@ export function ConstraintPane() {
 
   const handleCharSetConfirm = () => {
     if (editState.step === 'charset' && charSetSelection.value) {
-      let spec = charSetSelection.value;
-      if (spec === 'Custom') {
+      let charset: CharSetSpec;
+      if (charSetSelection.value === 'Custom') {
         // Build custom charset from individual chars
         const chars = customCharSetChars.value.filter(c => c.length > 0);
         if (chars.length === 0) return;
-        spec = `Custom:${chars.join('')}`;
+        charset = { kind: 'Custom', chars };
+      } else {
+        charset = { kind: charSetSelection.value as CharSetSpec['kind'] } as CharSetSpec;
       }
-      const actionJson = buildAddConstraintCharSet(editState.targetId, spec);
+      const actionJson = buildAddConstraintCharSet(editState.targetId, charset);
       dispatchAction(actionJson);
       closeConstraintEditor();
     }

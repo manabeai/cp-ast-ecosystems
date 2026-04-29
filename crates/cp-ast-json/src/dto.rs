@@ -245,7 +245,7 @@ pub enum PropertyTagDto {
 }
 
 /// Character set specification.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind")]
 pub enum CharSetSpecDto {
     LowerAlpha,
@@ -382,7 +382,7 @@ pub enum ConstraintDefDto {
     Sorted { order: String },
     Property { tag: String },
     SumBound { over_var: String, upper: String },
-    CharSet { spec: String },
+    CharSet { charset: CharSetSpecDto },
     StringLength { min: String, max: String },
     Guarantee { description: String },
 }
@@ -421,6 +421,18 @@ pub struct ProjectedNodeDto {
     pub label: String,
     pub depth: usize,
     pub is_hole: bool,
+    pub edit: Option<NodeEditProjectionDto>,
+}
+
+/// Semantic edit metadata for a projected structure node.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeEditProjectionDto {
+    pub kind: String,
+    pub name: String,
+    pub value_type: String,
+    pub length_expr: Option<String>,
+    pub allowed_kinds: Vec<String>,
+    pub allowed_types: Vec<String>,
 }
 
 /// An insertion point in the UI.
@@ -429,6 +441,34 @@ pub struct HotspotDto {
     pub parent_id: String,
     pub direction: String,
     pub candidates: Vec<String>,
+    pub candidate_details: Vec<HoleCandidateDetailDto>,
+    pub action: HotspotActionDto,
+}
+
+/// Declarative action routing for a projected hotspot.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HotspotActionDto {
+    pub kind: String,
+    pub target_id: String,
+    pub slot_name: Option<String>,
+}
+
+/// Detailed field schema for a candidate shown in the node popup.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HoleCandidateDetailDto {
+    pub kind: String,
+    pub label: String,
+    pub fields: Vec<CandidateFieldDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CandidateFieldDto {
+    pub name: String,
+    pub field_type: String,
+    pub label: String,
+    pub required: bool,
+    pub options: Option<Vec<String>>,
+    pub default_value: Option<String>,
 }
 
 /// Projected constraints split into draft and completed.

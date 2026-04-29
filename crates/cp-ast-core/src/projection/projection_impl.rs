@@ -1,11 +1,11 @@
 use super::api::ProjectionAPI;
 use super::types::{
-    AvailableAction, CandidateKind, CompletenessSummary, NodeDetail, NotEditableReason,
-    ProjectedNode, SlotEntry,
+    AvailableAction, CandidateKind, CompletenessSummary, NodeDetail, NodeEditProjection,
+    NotEditableReason, ProjectedNode, SlotEntry,
 };
-use crate::constraint::{Constraint, Expression};
+use crate::constraint::{ArithOp, Constraint, ExpectedType, Expression};
 use crate::operation::AstEngine;
-use crate::structure::{NodeId, NodeKind};
+use crate::structure::{NodeId, NodeKind, Reference};
 
 impl ProjectionAPI for AstEngine {
     fn nodes(&self) -> Vec<ProjectedNode> {
@@ -33,6 +33,7 @@ impl ProjectionAPI for AstEngine {
                     label,
                     depth,
                     is_hole,
+                    edit: node_edit_projection(self, node_id),
                 });
 
                 // Add children in reverse order for DFS (stack is LIFO)
@@ -166,6 +167,98 @@ impl ProjectionAPI for AstEngine {
             unsatisfied_constraints,
             is_complete,
         }
+    }
+}
+
+fn node_edit_projection(engine: &AstEngine, node_id: NodeId) -> Option<NodeEditProjection> {
+    let node = engine.structure.get(node_id)?;
+    let value_type = expected_type(engine, node_id)
+        .map_or("number", |typ| match typ {
+            ExpectedType::Int => "number",
+            ExpectedType::Str => "string",
+            ExpectedType::Char => "char",
+        })
+        .to_owned();
+
+    match node.kind() {
+        NodeKind::Scalar { name } => Some(NodeEditProjection {
+            kind: "scalar".to_owned(),
+            name: name.as_str().to_owned(),
+            value_type,
+            length_expr: None,
+            allowed_kinds: vec!["scalar".to_owned(), "array".to_owned()],
+            allowed_types: vec!["number".to_owned(), "char".to_owned(), "string".to_owned()],
+        }),
+        NodeKind::Array { name, length } => Some(NodeEditProjection {
+            kind: "array".to_owned(),
+            name: name.as_str().to_owned(),
+            value_type,
+            length_expr: Some(format_expr_with_names(length, engine)),
+            allowed_kinds: vec!["scalar".to_owned(), "array".to_owned()],
+            allowed_types: vec!["number".to_owned(), "char".to_owned(), "string".to_owned()],
+        }),
+        _ => None,
+    }
+}
+
+fn expected_type(engine: &AstEngine, node_id: NodeId) -> Option<ExpectedType> {
+    let ids = engine.constraints.for_node(node_id);
+    for cid in &ids {
+        if let Some(Constraint::TypeDecl { expected, .. }) = engine.constraints.get(*cid) {
+            return Some(expected.clone());
+        }
+    }
+    None
+}
+
+fn format_expr_with_names(expr: &Expression, engine: &AstEngine) -> String {
+    match expr {
+        Expression::Lit(n) => n.to_string(),
+        Expression::Var(r) => ref_to_name(r, engine),
+        Expression::BinOp { op, lhs, rhs } => {
+            let symbol = match op {
+                ArithOp::Add => "+",
+                ArithOp::Sub => "-",
+                ArithOp::Mul => "*",
+                ArithOp::Div => "/",
+            };
+            format!(
+                "{}{}{}",
+                format_expr_with_names(lhs, engine),
+                symbol,
+                format_expr_with_names(rhs, engine)
+            )
+        }
+        Expression::Pow { base, exp } => {
+            format!(
+                "{}^{}",
+                format_expr_with_names(base, engine),
+                format_expr_with_names(exp, engine)
+            )
+        }
+        Expression::FnCall { name, args } => {
+            let arg_strs: Vec<_> = args
+                .iter()
+                .map(|arg| format_expr_with_names(arg, engine))
+                .collect();
+            format!("{}({})", name.as_str(), arg_strs.join(","))
+        }
+    }
+}
+
+fn ref_to_name(reference: &Reference, engine: &AstEngine) -> String {
+    match reference {
+        Reference::VariableRef(node_id) => engine.structure.get(*node_id).map_or_else(
+            || format!("?node({node_id:?})"),
+            |node| match node.kind() {
+                NodeKind::Scalar { name }
+                | NodeKind::Array { name, .. }
+                | NodeKind::Matrix { name, .. } => name.as_str().to_owned(),
+                other => format!("{other:?}"),
+            },
+        ),
+        Reference::Unresolved(ident) => ident.as_str().to_owned(),
+        Reference::IndexedRef { .. } => format!("{reference:?}"),
     }
 }
 

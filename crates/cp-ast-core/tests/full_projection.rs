@@ -1,7 +1,8 @@
 use cp_ast_core::operation::action::Action;
 use cp_ast_core::operation::engine::AstEngine;
-use cp_ast_core::operation::types::{FillContent, VarType};
-use cp_ast_core::projection::types::HotspotDirection;
+use cp_ast_core::operation::types::{FillContent, LengthSpec, VarType};
+use cp_ast_core::projection::types::{HotspotActionKind, HotspotDirection};
+use cp_ast_core::structure::Reference;
 use cp_ast_core::structure::{Ident, NodeKind};
 
 #[test]
@@ -89,7 +90,7 @@ fn string_scalar_generates_charset_and_length_drafts() {
 fn scalar_has_right_hotspot() {
     let mut engine = AstEngine::new();
     let root = engine.structure.root();
-    engine
+    let result = engine
         .apply(&Action::AddSlotElement {
             parent: root,
             slot_name: "children".to_owned(),
@@ -99,6 +100,7 @@ fn scalar_has_right_hotspot() {
             },
         })
         .unwrap();
+    let n = *result.created_nodes.last().unwrap();
 
     let proj = cp_ast_core::projection::project_full(&engine);
     let right = proj
@@ -112,6 +114,16 @@ fn scalar_has_right_hotspot() {
     let right = right.unwrap();
     assert!(right.candidates.iter().any(|c| c == "scalar"));
     assert!(right.candidates.iter().any(|c| c == "array"));
+    assert_eq!(right.action.kind, HotspotActionKind::AddSibling);
+    assert_eq!(right.action.target_id, n);
+    assert!(right.action.slot_name.is_none());
+    assert!(right
+        .candidate_details
+        .iter()
+        .any(|candidate| candidate.kind == "array"
+            && candidate.fields.iter().any(|field| field.name == "length"
+                && field.required
+                && field.field_type == "length")));
 }
 
 #[test]
@@ -156,7 +168,96 @@ fn tuple_projects_as_single_structure_line() {
         .iter()
         .find(|h| h.parent_id == a && h.direction == HotspotDirection::Right);
     assert!(n_right.is_none());
-    assert!(a_right.is_some());
+    let a_right = a_right.unwrap();
+    assert_eq!(a_right.action.kind, HotspotActionKind::AddSibling);
+    assert_eq!(a_right.action.target_id, a);
+}
+
+#[test]
+fn below_and_inside_hotspots_project_action_targets_without_label_inference() {
+    let mut engine = AstEngine::new();
+    let root = engine.structure.root();
+
+    let repeat = engine
+        .apply(&Action::AddSlotElement {
+            parent: root,
+            slot_name: "children".to_owned(),
+            element: FillContent::Repeat {
+                count: LengthSpec::Expr("T".to_owned()),
+            },
+        })
+        .unwrap()
+        .created_nodes
+        .into_iter()
+        .find(|id| {
+            matches!(
+                engine.structure.get(*id).unwrap().kind(),
+                NodeKind::Repeat { .. }
+            )
+        })
+        .unwrap();
+
+    let hole = match engine.structure.get(repeat).unwrap().kind() {
+        NodeKind::Repeat { body, .. } => body[0],
+        _ => unreachable!(),
+    };
+
+    let proj = cp_ast_core::projection::project_full(&engine);
+    let inside = proj
+        .hotspots
+        .iter()
+        .find(|h| h.parent_id == repeat && h.direction == HotspotDirection::Inside)
+        .unwrap();
+    assert_eq!(inside.action.kind, HotspotActionKind::FillHole);
+    assert_eq!(inside.action.target_id, hole);
+
+    engine
+        .apply(&Action::FillHole {
+            target: hole,
+            fill: FillContent::Scalar {
+                name: "N".to_owned(),
+                typ: VarType::Int,
+            },
+        })
+        .unwrap();
+
+    let proj = cp_ast_core::projection::project_full(&engine);
+    let below = proj
+        .hotspots
+        .iter()
+        .find(|h| h.parent_id == repeat && h.direction == HotspotDirection::Below)
+        .unwrap();
+    assert_eq!(below.action.kind, HotspotActionKind::AddSlotElement);
+    assert_eq!(below.action.target_id, repeat);
+    assert_eq!(below.action.slot_name.as_deref(), Some("body"));
+}
+
+#[test]
+fn projected_node_contains_edit_metadata_without_parsing_label() {
+    let mut engine = AstEngine::new();
+    let n = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let a = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: cp_ast_core::constraint::Expression::Var(Reference::VariableRef(n)),
+    });
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![n, a],
+        });
+
+    let proj = cp_ast_core::projection::project_full(&engine);
+    let a_node = proj.nodes.iter().find(|node| node.id == a).unwrap();
+    let edit = a_node.edit.as_ref().unwrap();
+    assert_eq!(edit.kind, "array");
+    assert_eq!(edit.name, "A");
+    assert_eq!(edit.value_type, "number");
+    assert_eq!(edit.length_expr.as_deref(), Some("N"));
 }
 
 #[test]

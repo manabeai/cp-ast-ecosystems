@@ -8,8 +8,9 @@ use std::collections::HashSet;
 use super::api::ProjectionAPI;
 use super::projection_impl::make_label;
 use super::types::{
-    CompletedConstraint, ConstraintItem, ConstraintItemStatus, DraftConstraint, ExprCandidate,
-    FullProjection, Hotspot, HotspotDirection, ProjectedConstraints, ProjectedNode, StructureLine,
+    CandidateField, CompletedConstraint, ConstraintItem, ConstraintItemStatus, DraftConstraint,
+    ExprCandidate, FullProjection, HoleCandidateDetail, Hotspot, HotspotAction, HotspotActionKind,
+    HotspotDirection, NodeEditProjection, ProjectedConstraints, ProjectedNode, StructureLine,
 };
 use crate::constraint::{Constraint, ExpectedType, Expression};
 use crate::operation::AstEngine;
@@ -56,6 +57,8 @@ fn generate_hotspots(engine: &AstEngine) -> Vec<Hotspot> {
     let mut hotspots = Vec::new();
     let below: Vec<String> = BELOW_CANDIDATES.iter().map(|s| (*s).to_owned()).collect();
     let right: Vec<String> = RIGHT_CANDIDATES.iter().map(|s| (*s).to_owned()).collect();
+    let below_details = candidate_details(BELOW_CANDIDATES);
+    let right_details = candidate_details(RIGHT_CANDIDATES);
 
     for node in engine.structure.iter() {
         match node.kind() {
@@ -64,29 +67,59 @@ fn generate_hotspots(engine: &AstEngine) -> Vec<Hotspot> {
                     parent_id: node.id(),
                     direction: HotspotDirection::Below,
                     candidates: below.clone(),
+                    candidate_details: below_details.clone(),
+                    action: HotspotAction {
+                        kind: HotspotActionKind::AddSlotElement,
+                        target_id: node.id(),
+                        slot_name: Some("children".to_owned()),
+                    },
                 });
-                push_right_for_last_inline_child(engine, children, &right, &mut hotspots);
+                push_right_for_last_inline_child(
+                    engine,
+                    children,
+                    &right,
+                    &right_details,
+                    &mut hotspots,
+                );
             }
             NodeKind::Repeat { body, .. } => {
-                let has_hole = body.iter().any(|&id| {
+                let hole = body.iter().copied().find(|&id| {
                     engine
                         .structure
                         .get(id)
                         .is_some_and(|n| matches!(n.kind(), NodeKind::Hole { .. }))
                 });
-                if has_hole {
+                if let Some(hole_id) = hole {
                     hotspots.push(Hotspot {
                         parent_id: node.id(),
                         direction: HotspotDirection::Inside,
                         candidates: below.clone(),
+                        candidate_details: below_details.clone(),
+                        action: HotspotAction {
+                            kind: HotspotActionKind::FillHole,
+                            target_id: hole_id,
+                            slot_name: None,
+                        },
                     });
                 } else {
                     hotspots.push(Hotspot {
                         parent_id: node.id(),
                         direction: HotspotDirection::Below,
                         candidates: below.clone(),
+                        candidate_details: below_details.clone(),
+                        action: HotspotAction {
+                            kind: HotspotActionKind::AddSlotElement,
+                            target_id: node.id(),
+                            slot_name: Some("body".to_owned()),
+                        },
                     });
-                    push_right_for_last_inline_child(engine, body, &right, &mut hotspots);
+                    push_right_for_last_inline_child(
+                        engine,
+                        body,
+                        &right,
+                        &right_details,
+                        &mut hotspots,
+                    );
                 }
             }
             NodeKind::Choice { .. } => {
@@ -94,10 +127,22 @@ fn generate_hotspots(engine: &AstEngine) -> Vec<Hotspot> {
                     parent_id: node.id(),
                     direction: HotspotDirection::Variant,
                     candidates: below.clone(),
+                    candidate_details: below_details.clone(),
+                    action: HotspotAction {
+                        kind: HotspotActionKind::AddChoiceVariant,
+                        target_id: node.id(),
+                        slot_name: None,
+                    },
                 });
             }
             NodeKind::Tuple { elements } => {
-                push_right_for_last_inline_child(engine, elements, &right, &mut hotspots);
+                push_right_for_last_inline_child(
+                    engine,
+                    elements,
+                    &right,
+                    &right_details,
+                    &mut hotspots,
+                );
             }
             _ => {}
         }
@@ -110,6 +155,7 @@ fn push_right_for_last_inline_child(
     engine: &AstEngine,
     children: &[NodeId],
     candidates: &[String],
+    candidate_details: &[HoleCandidateDetail],
     hotspots: &mut Vec<Hotspot>,
 ) {
     let Some(child_id) = children.iter().rev().copied().find(|&id| {
@@ -125,7 +171,109 @@ fn push_right_for_last_inline_child(
         parent_id: child_id,
         direction: HotspotDirection::Right,
         candidates: candidates.to_vec(),
+        candidate_details: candidate_details.to_vec(),
+        action: HotspotAction {
+            kind: HotspotActionKind::AddSibling,
+            target_id: child_id,
+            slot_name: None,
+        },
     });
+}
+
+fn candidate_details(candidates: &[&str]) -> Vec<HoleCandidateDetail> {
+    candidates
+        .iter()
+        .map(|candidate| HoleCandidateDetail {
+            kind: (*candidate).to_owned(),
+            label: candidate_label(candidate).to_owned(),
+            fields: candidate_fields(candidate),
+        })
+        .collect()
+}
+
+fn candidate_label(candidate: &str) -> &'static str {
+    match candidate {
+        "scalar" => "Scalar",
+        "array" => "Array",
+        "repeat" => "Repeat",
+        "grid-template" => "Grid",
+        "edge-list" => "Edge List",
+        "weighted-edge-list" => "Weighted Edge List",
+        "query-list" => "Query List",
+        "multi-testcase" => "Multi-Testcase",
+        _ => "Unknown",
+    }
+}
+
+fn candidate_fields(candidate: &str) -> Vec<CandidateField> {
+    match candidate {
+        "scalar" => vec![type_field(), name_field()],
+        "array" => vec![type_field(), name_field(), length_field("length", "Length")],
+        "repeat" | "edge-list" => vec![count_field()],
+        "grid-template" => vec![length_field("rows", "Rows"), length_field("cols", "Cols")],
+        "weighted-edge-list" => vec![
+            length_field("length", "Count"),
+            CandidateField {
+                name: "weight_name".to_owned(),
+                field_type: "identifier".to_owned(),
+                label: "Weight".to_owned(),
+                required: true,
+                options: None,
+                default_value: Some("w".to_owned()),
+            },
+            type_field(),
+        ],
+        "query-list" | "multi-testcase" => vec![length_field("length", "Count")],
+        _ => Vec::new(),
+    }
+}
+
+fn type_field() -> CandidateField {
+    CandidateField {
+        name: "type".to_owned(),
+        field_type: "type".to_owned(),
+        label: "Type".to_owned(),
+        required: true,
+        options: Some(vec![
+            "number".to_owned(),
+            "string".to_owned(),
+            "char".to_owned(),
+        ]),
+        default_value: Some("number".to_owned()),
+    }
+}
+
+fn name_field() -> CandidateField {
+    CandidateField {
+        name: "name".to_owned(),
+        field_type: "identifier".to_owned(),
+        label: "Name".to_owned(),
+        required: true,
+        options: None,
+        default_value: None,
+    }
+}
+
+fn length_field(name: &str, label: &str) -> CandidateField {
+    CandidateField {
+        name: name.to_owned(),
+        field_type: "length".to_owned(),
+        label: label.to_owned(),
+        required: true,
+        options: None,
+        default_value: None,
+    }
+}
+
+fn count_field() -> CandidateField {
+    CandidateField {
+        name: "count".to_owned(),
+        field_type: "count_expr".to_owned(),
+        label: "Count".to_owned(),
+        required: true,
+        options: None,
+        default_value: None,
+    }
 }
 
 fn generate_structure_lines(engine: &AstEngine) -> Vec<StructureLine> {
@@ -212,11 +360,43 @@ fn projected_node(engine: &AstEngine, node_id: NodeId, depth: usize) -> Option<P
         label: make_label(node.kind()),
         depth,
         is_hole: matches!(node.kind(), NodeKind::Hole { .. }),
+        edit: node_edit_projection(engine, node_id),
     })
 }
 
 fn is_scalar_or_array(kind: &NodeKind) -> bool {
     matches!(kind, NodeKind::Scalar { .. } | NodeKind::Array { .. })
+}
+
+fn node_edit_projection(engine: &AstEngine, node_id: NodeId) -> Option<NodeEditProjection> {
+    let node = engine.structure.get(node_id)?;
+    let value_type = expected_type(engine, node_id)
+        .map_or("number", |typ| match typ {
+            ExpectedType::Int => "number",
+            ExpectedType::Str => "string",
+            ExpectedType::Char => "char",
+        })
+        .to_owned();
+
+    match node.kind() {
+        NodeKind::Scalar { name } => Some(NodeEditProjection {
+            kind: "scalar".to_owned(),
+            name: name.as_str().to_owned(),
+            value_type,
+            length_expr: None,
+            allowed_kinds: vec!["scalar".to_owned(), "array".to_owned()],
+            allowed_types: vec!["number".to_owned(), "char".to_owned(), "string".to_owned()],
+        }),
+        NodeKind::Array { name, length } => Some(NodeEditProjection {
+            kind: "array".to_owned(),
+            name: name.as_str().to_owned(),
+            value_type,
+            length_expr: Some(format_expr_with_names(length, engine)),
+            allowed_kinds: vec!["scalar".to_owned(), "array".to_owned()],
+            allowed_types: vec!["number".to_owned(), "char".to_owned(), "string".to_owned()],
+        }),
+        _ => None,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -603,6 +783,41 @@ fn format_expr_simple(expr: &Expression) -> String {
         Expression::FnCall { name, args } => {
             let arg_strs: Vec<_> = args.iter().map(format_expr_simple).collect();
             format!("{}({})", name.as_str(), arg_strs.join(", "))
+        }
+    }
+}
+
+fn format_expr_with_names(expr: &Expression, engine: &AstEngine) -> String {
+    match expr {
+        Expression::Lit(n) => n.to_string(),
+        Expression::Var(r) => ref_to_name(r, engine),
+        Expression::BinOp { op, lhs, rhs } => {
+            let symbol = match op {
+                crate::constraint::ArithOp::Add => "+",
+                crate::constraint::ArithOp::Sub => "-",
+                crate::constraint::ArithOp::Mul => "*",
+                crate::constraint::ArithOp::Div => "/",
+            };
+            format!(
+                "{}{}{}",
+                format_expr_with_names(lhs, engine),
+                symbol,
+                format_expr_with_names(rhs, engine)
+            )
+        }
+        Expression::Pow { base, exp } => {
+            format!(
+                "{}^{}",
+                format_expr_with_names(base, engine),
+                format_expr_with_names(exp, engine)
+            )
+        }
+        Expression::FnCall { name, args } => {
+            let arg_strs: Vec<_> = args
+                .iter()
+                .map(|arg| format_expr_with_names(arg, engine))
+                .collect();
+            format!("{}({})", name.as_str(), arg_strs.join(","))
         }
     }
 }

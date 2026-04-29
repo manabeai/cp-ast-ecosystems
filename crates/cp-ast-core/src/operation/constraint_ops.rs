@@ -3,7 +3,7 @@ use super::error::OperationError;
 use super::result::ApplyResult;
 use super::types::{ConstraintDef, ConstraintDefKind, VarType};
 use crate::constraint::Expression;
-use crate::constraint::{CharSetSpec, Constraint, ConstraintId, ExpectedType};
+use crate::constraint::{Constraint, ConstraintId, ExpectedType};
 use crate::structure::{Ident, NodeId, NodeKind, Reference, StructureAst};
 
 impl AstEngine {
@@ -103,9 +103,9 @@ fn convert_def_to_constraint(target: NodeId, kind: &ConstraintDefKind) -> Constr
             variable: target_ref,
             upper: parse_expression(upper),
         },
-        ConstraintDefKind::CharSet { spec } => Constraint::CharSet {
+        ConstraintDefKind::CharSet { charset } => Constraint::CharSet {
             target: target_ref,
-            charset: parse_charset_spec(spec),
+            charset: charset.clone(),
         },
         ConstraintDefKind::StringLength { min, max } => Constraint::StringLength {
             target: target_ref,
@@ -191,23 +191,4 @@ fn find_node_by_name(structure: &StructureAst, name: &str) -> Option<NodeId> {
         }
     }
     None
-}
-
-/// Parse a charset spec string into `CharSetSpec`.
-fn parse_charset_spec(spec: &str) -> CharSetSpec {
-    match spec {
-        "LowerAlpha" => CharSetSpec::LowerAlpha,
-        "UpperAlpha" => CharSetSpec::UpperAlpha,
-        "Alpha" => CharSetSpec::Alpha,
-        "Digit" => CharSetSpec::Digit,
-        "AlphaNumeric" => CharSetSpec::AlphaNumeric,
-        _ => {
-            // Handle "Custom:abc" format from frontend
-            if let Some(chars) = spec.strip_prefix("Custom:") {
-                CharSetSpec::Custom(chars.chars().collect())
-            } else {
-                CharSetSpec::Custom(spec.chars().collect())
-            }
-        }
-    }
 }

@@ -28,28 +28,6 @@ import {
 } from './action-builder';
 import { CountField, getCountExprValue } from './ExpressionBuilder';
 
-const CANDIDATE_LABELS: Record<string, string> = {
-  scalar: 'Scalar',
-  array: 'Array',
-  repeat: 'Repeat',
-  'grid-template': 'Grid',
-  'edge-list': 'Edge List',
-  'weighted-edge-list': 'Weighted Edge List',
-  'query-list': 'Query List',
-  'multi-testcase': 'Multi-Testcase',
-};
-
-const PREVIEW_FIELDS: Record<string, string[]> = {
-  scalar: ['Type', 'Name'],
-  array: ['Type', 'Name', 'Length'],
-  repeat: ['Count'],
-  'grid-template': ['Rows', 'Cols'],
-  'edge-list': ['Count'],
-  'weighted-edge-list': ['Count', 'Weight', 'Type'],
-  'query-list': ['Count'],
-  'multi-testcase': ['Count'],
-};
-
 export function NodePopup() {
   const state = popupState.value;
   if (state.step === 'closed') return null;
@@ -64,6 +42,7 @@ export function NodePopup() {
   }
 
   const candidates = state.hotspot.candidates;
+  const candidateDetails = new Map(state.hotspot.candidate_details.map(detail => [detail.kind, detail]));
   const activeStep = state.step === 'candidates' ? 1 : 2;
   const selectedCandidate = state.step === 'fields' ? state.candidate : null;
 
@@ -81,7 +60,7 @@ export function NodePopup() {
               onMouseEnter={() => { hoveredCandidate.value = c; }}
               onMouseLeave={() => { hoveredCandidate.value = null; }}
             >
-              {CANDIDATE_LABELS[c] ?? c}
+              {candidateDetails.get(c)?.label ?? c}
             </button>
           ))}
         </div>
@@ -106,16 +85,20 @@ function StepIndicator({ active }: { active: number }) {
 
 function PreviewPanel() {
   const hovered = hoveredCandidate.value;
+  const state = popupState.value;
   if (!hovered) {
     return <div class="popup-preview popup-preview-empty">Hover to preview fields</div>;
   }
-  const fields = PREVIEW_FIELDS[hovered] ?? [];
+  const detail = state.step === 'closed'
+    ? undefined
+    : state.hotspot.candidate_details.find(candidate => candidate.kind === hovered);
+  const fields = detail?.fields ?? [];
   return (
     <div class="popup-preview">
-      <div class="preview-title">{CANDIDATE_LABELS[hovered] ?? hovered}</div>
+      <div class="preview-title">{detail?.label ?? hovered}</div>
       <div class="preview-fields">
         {fields.map(f => (
-          <span key={f} class="preview-field-tag">{f}</span>
+          <span key={f.name} class="preview-field-tag">{f.label}</span>
         ))}
       </div>
     </div>
@@ -175,13 +158,16 @@ function FieldsPanel() {
   const candidate = state.candidate;
   const proj = projection.value;
   const availableVars = proj.available_vars;
+  const fields = state.hotspot.candidate_details.find(detail => detail.kind === candidate)?.fields ?? [];
+  const hasField = (name: string) => fields.some(field => field.name === name);
+  const hasFieldType = (fieldType: string) => fields.some(field => field.field_type === fieldType);
 
-  const needsType = candidate === 'scalar' || candidate === 'array' || candidate === 'weighted-edge-list';
-  const needsName = candidate === 'scalar' || candidate === 'array';
-  const needsLength = candidate === 'array' || candidate === 'query-list' || candidate === 'multi-testcase' || candidate === 'weighted-edge-list';
-  const needsGridLength = candidate === 'grid-template';
-  const needsCountExpr = candidate === 'edge-list' || candidate === 'repeat';
-  const needsWeightName = candidate === 'weighted-edge-list';
+  const needsType = hasField('type');
+  const needsName = hasField('name');
+  const needsLength = hasField('length');
+  const needsGridLength = hasField('rows') || hasField('cols');
+  const needsCountExpr = hasFieldType('count_expr');
+  const needsWeightName = hasField('weight_name');
 
   // For grid-template, we need TWO length selectors. The first unset one gets the testid.
   const gridRowsSet = popupLengthVar.value !== '';
@@ -200,7 +186,7 @@ function FieldsPanel() {
       countExpr,
       availableVars,
     );
-    const actionJson = buildHotspotAction(state.hotspot, fill, proj.nodes);
+    const actionJson = buildHotspotAction(state.hotspot, fill);
     dispatchAction(actionJson);
     closePopup();
   };

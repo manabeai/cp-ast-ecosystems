@@ -23,6 +23,16 @@ export interface ProjectedNode {
   label: string;
   depth: number;
   is_hole: boolean;
+  edit?: NodeEditProjection;
+}
+
+export interface NodeEditProjection {
+  kind: 'scalar' | 'array';
+  name: string;
+  value_type: 'number' | 'string' | 'char';
+  length_expr?: string;
+  allowed_kinds: string[];
+  allowed_types: string[];
 }
 
 export interface StructureLine {
@@ -34,6 +44,29 @@ export interface Hotspot {
   parent_id: string;
   direction: 'below' | 'right' | 'inside' | 'variant';
   candidates: string[];
+  candidate_details: CandidateDetail[];
+  action: HotspotAction;
+}
+
+export interface HotspotAction {
+  kind: 'add_slot_element' | 'add_sibling' | 'fill_hole' | 'add_choice_variant';
+  target_id: string;
+  slot_name?: string;
+}
+
+export interface CandidateDetail {
+  kind: string;
+  label: string;
+  fields: CandidateField[];
+}
+
+export interface CandidateField {
+  name: string;
+  field_type: 'type' | 'identifier' | 'length' | 'count_expr' | string;
+  label: string;
+  required: boolean;
+  options?: string[];
+  default_value?: string;
 }
 
 export interface DraftConstraint {

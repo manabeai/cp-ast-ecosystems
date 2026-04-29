@@ -214,11 +214,20 @@ export function buildAddConstraintSumBound(
   });
 }
 
-export function buildAddConstraintCharSet(targetId: string, spec: string): string {
+export type CharSetSpec =
+  | { kind: 'LowerAlpha' }
+  | { kind: 'UpperAlpha' }
+  | { kind: 'Alpha' }
+  | { kind: 'Digit' }
+  | { kind: 'AlphaNumeric' }
+  | { kind: 'Custom'; chars: string[] }
+  | { kind: 'Range'; from: string; to: string };
+
+export function buildAddConstraintCharSet(targetId: string, charset: CharSetSpec): string {
   return JSON.stringify({
     action: 'AddConstraint',
     target: targetId,
-    constraint: { kind: 'CharSet', spec },
+    constraint: { kind: 'CharSet', charset },
   });
 }
 
@@ -254,40 +263,15 @@ export function buildRemoveConstraint(constraintId: string): string {
 export function buildHotspotAction(
   hotspot: Hotspot,
   element: FillContent,
-  nodes: { id: string; label: string; is_hole: boolean; depth?: number }[],
 ): string {
-  switch (hotspot.direction) {
-    case 'below': {
-      // The parent could be a Sequence (slot="children") or Repeat (slot="body").
-      // We check if the label contains "Repeat" to decide.
-      const parentNode = nodes.find(n => n.id === hotspot.parent_id);
-      const slotName = parentNode?.label.includes('Repeat') ? 'body' : 'children';
-      return buildAddSlotElement(hotspot.parent_id, slotName, element);
-    }
-    case 'right':
-      return buildAddSibling(hotspot.parent_id, element);
-    case 'inside': {
-      // Find the hole node that is a child of this hotspot's parent.
-      // In the projected node list, the hole will appear after the parent
-      // and have depth == parent.depth + 1.
-      const parentIdx = nodes.findIndex(n => n.id === hotspot.parent_id);
-      const parentDepth = parentIdx >= 0 ? (nodes[parentIdx].depth ?? 0) : -1;
-      let targetId = hotspot.parent_id;
-      if (parentIdx >= 0) {
-        for (let i = parentIdx + 1; i < nodes.length; i++) {
-          const n = nodes[i];
-          const d = n.depth ?? 0;
-          if (d <= parentDepth) break; // left the parent's subtree
-          if (n.is_hole && d === parentDepth + 1) {
-            targetId = n.id;
-            break;
-          }
-        }
-      }
-      return buildFillHole(targetId, element);
-    }
-    case 'variant':
-      // Handled separately by buildAddChoiceVariant
+  switch (hotspot.action.kind) {
+    case 'add_slot_element':
+      return buildAddSlotElement(hotspot.action.target_id, hotspot.action.slot_name ?? 'children', element);
+    case 'add_sibling':
+      return buildAddSibling(hotspot.action.target_id, element);
+    case 'fill_hole':
+      return buildFillHole(hotspot.action.target_id, element);
+    case 'add_choice_variant':
       return '';
   }
 }

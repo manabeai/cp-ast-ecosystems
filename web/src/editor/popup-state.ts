@@ -4,7 +4,7 @@
  * Manages node creation wizards, constraint editing, and expression building.
  */
 import { signal } from '@preact/signals';
-import type { Hotspot, ExprCandidate } from './editor-state';
+import type { Hotspot, ExprCandidate, ProjectedNode } from './editor-state';
 
 // ── Node Popup State ───────────────────────────────────────────────
 
@@ -27,15 +27,13 @@ export const nodeEditKind = signal<'scalar' | 'array'>('scalar');
 export const nodeEditType = signal('number');
 export const nodeEditLength = signal('');
 
-export function openNodeEdit(nodeId: string, currentLabel: string): void {
-  // Extract name from label (e.g., "A[N]" -> "A", "N" -> "N")
-  const name = currentLabel.match(/^([A-Za-z_][A-Za-z0-9_]*)/)?.[1] ?? currentLabel;
-  const length = currentLabel.match(/^[A-Za-z_][A-Za-z0-9_]*\[([^\]]+)\]/)?.[1] ?? '';
-  nodeEditState.value = { step: 'editing', nodeId, currentLabel };
-  nodeEditName.value = name;
-  nodeEditKind.value = length ? 'array' : 'scalar';
-  nodeEditType.value = 'number';
-  nodeEditLength.value = length;
+export function openNodeEdit(node: ProjectedNode): void {
+  if (!node.edit) return;
+  nodeEditState.value = { step: 'editing', nodeId: node.id, currentLabel: node.label };
+  nodeEditName.value = node.edit.name;
+  nodeEditKind.value = node.edit.kind;
+  nodeEditType.value = node.edit.value_type;
+  nodeEditLength.value = node.edit.length_expr ?? '';
 }
 
 export function closeNodeEdit(): void {

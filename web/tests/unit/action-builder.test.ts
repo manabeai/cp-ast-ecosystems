@@ -19,6 +19,7 @@ import {
   buildAddConstraintProperty,
   buildAddConstraintSumBound,
   buildAddConstraintCharSet,
+  buildHotspotAction,
   buildFillFromPopup,
 } from '../../src/editor/action-builder';
 import type { ExprCandidate } from '../../src/editor/editor-state';
@@ -166,10 +167,24 @@ describe('Action JSON builders', () => {
   });
 
   it('builds AddConstraint CharSet action', () => {
-    const json = buildAddConstraintCharSet('3', 'LowerAlpha');
+    const json = buildAddConstraintCharSet('3', { kind: 'LowerAlpha' });
     const parsed = JSON.parse(json);
     expect(parsed.constraint.kind).toBe('CharSet');
-    expect(parsed.constraint.spec).toBe('LowerAlpha');
+    expect(parsed.constraint.charset).toEqual({ kind: 'LowerAlpha' });
+  });
+
+  it('uses projected hotspot action instead of inferring from labels', () => {
+    const json = buildHotspotAction({
+      parent_id: 'repeat-node',
+      direction: 'below',
+      candidates: ['scalar'],
+      candidate_details: [],
+      action: { kind: 'add_slot_element', target_id: 'repeat-node', slot_name: 'body' },
+    }, { kind: 'Scalar', name: 'N', typ: 'Int' });
+    const parsed = JSON.parse(json);
+    expect(parsed.action).toBe('AddSlotElement');
+    expect(parsed.parent).toBe('repeat-node');
+    expect(parsed.slot_name).toBe('body');
   });
 });
 

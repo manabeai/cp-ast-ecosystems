@@ -1,3 +1,4 @@
+use crate::constraint::CharSetSpec;
 use crate::structure::NodeId;
 
 /// Variable type for operation layer.
@@ -97,7 +98,7 @@ pub enum ConstraintDefKind {
     /// Sum bound across test cases.
     SumBound { over_var: String, upper: String },
     /// Character set constraint.
-    CharSet { spec: String },
+    CharSet { charset: CharSetSpec },
     /// String length bounds.
     StringLength { min: String, max: String },
     /// Human-readable guarantee.

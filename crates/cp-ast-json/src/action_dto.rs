@@ -1,6 +1,6 @@
 //! Bidirectional conversion between `Action` ↔ `ActionDto`.
 
-use cp_ast_core::constraint::{ConstraintId, RelationOp, SortOrder};
+use cp_ast_core::constraint::{CharSetSpec, ConstraintId, RelationOp, SortOrder};
 use cp_ast_core::operation::action::Action;
 use cp_ast_core::operation::types::{
     ConstraintDef, ConstraintDefKind, FillContent, LengthSpec, SumBoundDef, VarType,
@@ -8,7 +8,8 @@ use cp_ast_core::operation::types::{
 use cp_ast_core::structure::{Literal, NodeId};
 
 use crate::dto::{
-    ActionDto, ConstraintDefDto, FillContentDto, LengthSpecDto, LiteralDto, SumBoundDefDto,
+    ActionDto, CharSetSpecDto, ConstraintDefDto, FillContentDto, LengthSpecDto, LiteralDto,
+    SumBoundDefDto,
 };
 use crate::error::ConversionError;
 
@@ -346,7 +347,9 @@ fn constraint_def_to_dto(cd: &ConstraintDef) -> ConstraintDefDto {
             over_var: over_var.clone(),
             upper: upper.clone(),
         },
-        ConstraintDefKind::CharSet { spec } => ConstraintDefDto::CharSet { spec: spec.clone() },
+        ConstraintDefKind::CharSet { charset } => ConstraintDefDto::CharSet {
+            charset: charset_spec_to_dto(charset),
+        },
         ConstraintDefKind::StringLength { min, max } => ConstraintDefDto::StringLength {
             min: min.clone(),
             max: max.clone(),
@@ -379,7 +382,9 @@ fn dto_to_constraint_def(dto: &ConstraintDefDto) -> Result<ConstraintDef, Conver
             over_var: over_var.clone(),
             upper: upper.clone(),
         },
-        ConstraintDefDto::CharSet { spec } => ConstraintDefKind::CharSet { spec: spec.clone() },
+        ConstraintDefDto::CharSet { charset } => ConstraintDefKind::CharSet {
+            charset: dto_to_charset_spec(charset),
+        },
         ConstraintDefDto::StringLength { min, max } => ConstraintDefKind::StringLength {
             min: min.clone(),
             max: max.clone(),
@@ -389,6 +394,35 @@ fn dto_to_constraint_def(dto: &ConstraintDefDto) -> Result<ConstraintDef, Conver
         },
     };
     Ok(ConstraintDef { kind })
+}
+
+fn charset_spec_to_dto(charset: &CharSetSpec) -> CharSetSpecDto {
+    match charset {
+        CharSetSpec::LowerAlpha => CharSetSpecDto::LowerAlpha,
+        CharSetSpec::UpperAlpha => CharSetSpecDto::UpperAlpha,
+        CharSetSpec::Alpha => CharSetSpecDto::Alpha,
+        CharSetSpec::Digit => CharSetSpecDto::Digit,
+        CharSetSpec::AlphaNumeric => CharSetSpecDto::AlphaNumeric,
+        CharSetSpec::Custom(chars) => CharSetSpecDto::Custom {
+            chars: chars.clone(),
+        },
+        CharSetSpec::Range(from, to) => CharSetSpecDto::Range {
+            from: *from,
+            to: *to,
+        },
+    }
+}
+
+fn dto_to_charset_spec(charset: &CharSetSpecDto) -> CharSetSpec {
+    match charset {
+        CharSetSpecDto::LowerAlpha => CharSetSpec::LowerAlpha,
+        CharSetSpecDto::UpperAlpha => CharSetSpec::UpperAlpha,
+        CharSetSpecDto::Alpha => CharSetSpec::Alpha,
+        CharSetSpecDto::Digit => CharSetSpec::Digit,
+        CharSetSpecDto::AlphaNumeric => CharSetSpec::AlphaNumeric,
+        CharSetSpecDto::Custom { chars } => CharSetSpec::Custom(chars.clone()),
+        CharSetSpecDto::Range { from, to } => CharSetSpec::Range(*from, *to),
+    }
 }
 
 // ── SumBoundDef helpers ─────────────────────────────────────────────
