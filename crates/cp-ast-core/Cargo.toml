@@ -5,6 +5,11 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "Core AST types for competitive programming problem specification DSL"
+repository = "https://github.com/manabeai/cp-ast-ecosystems"
+homepage = "https://github.com/manabeai/cp-ast-ecosystems"
+documentation = "https://docs.rs/cp-ast-core"
+readme = "README.md"
+keywords = ["ast", "dsl"]
 
 [dependencies]
 rand = "0.8"
