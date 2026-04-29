@@ -192,6 +192,19 @@ pub fn apply_action(document_json: &str, action_json: &str) -> Result<String, Js
     serialize(&engine)
 }
 
+/// Canonicalize a document through the Rust AST and return compact JSON.
+///
+/// This is intended for transport-oriented use cases such as share links.
+///
+/// # Errors
+///
+/// Returns `JsError` if deserialization or serialization fails.
+#[wasm_bindgen]
+pub fn canonicalize_document_for_share(document_json: &str) -> Result<String, JsError> {
+    let engine = deserialize(document_json)?;
+    cp_ast_json::serialize_ast_compact(&engine).map_err(|e| JsError::new(&e.to_string()))
+}
+
 /// Returns hole candidates for a specific hole node as JSON.
 ///
 /// # Errors

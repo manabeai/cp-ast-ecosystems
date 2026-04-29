@@ -30,6 +30,17 @@ pub fn serialize_ast(engine: &AstEngine) -> Result<String, ConversionError> {
     serde_json::to_string_pretty(&envelope).map_err(ConversionError::from)
 }
 
+/// Serialize an `AstEngine` to a compact JSON string.
+///
+/// This is intended for transport-oriented use cases such as share links.
+///
+/// # Errors
+/// Returns `ConversionError::Json` if JSON serialization fails.
+pub fn serialize_ast_compact(engine: &AstEngine) -> Result<String, ConversionError> {
+    let envelope = to_dto::engine_to_envelope(engine);
+    serde_json::to_string(&envelope).map_err(ConversionError::from)
+}
+
 /// Deserialize an `AstEngine` from a JSON string.
 ///
 /// Validates schema version and arena consistency.

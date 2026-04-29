@@ -15,6 +15,7 @@ export {
   new_document,
   project_full,
   apply_action,
+  canonicalize_document_for_share,
   get_hole_candidates,
   get_expr_candidates,
   get_constraint_targets,

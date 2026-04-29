@@ -4,14 +4,15 @@ import { ViewerPage } from './components/viewer/ViewerPage';
 import { PreviewPage } from './components/preview/PreviewPage';
 import { EditorPage } from './editor/EditorPage';
 import { documentJson, initEditor } from './editor/editor-state';
+import { encodeShareState } from './share-state';
 
 const copyFeedback = signal<boolean>(false);
 
-function handleCopyLink(): void {
+async function handleCopyLink(): Promise<void> {
   const json = documentJson.value;
   if (!json) return;
 
-  const encoded = encodeURIComponent(btoa(json));
+  const encoded = await encodeShareState(json);
   const url = `${window.location.origin}${window.location.pathname}?state=${encoded}`;
 
   navigator.clipboard.writeText(url).then(() => {
@@ -53,7 +54,7 @@ export function App() {
           <button
             class="copy-link-btn"
             data-testid="copy-link-button"
-            onClick={handleCopyLink}
+            onClick={() => { void handleCopyLink(); }}
           >
             {copyFeedback.value ? '✓ Copied!' : '🔗 Copy Link'}
           </button>
