@@ -1907,3 +1907,86 @@ fn dependency_graph_includes_constraint_refs() {
         "N must come before A due to constraint dependency"
     );
 }
+
+#[test]
+fn generate_char_matrix_respects_custom_charset() {
+    let mut engine = AstEngine::new();
+
+    let h_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("H"),
+    });
+    let w_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("W"),
+    });
+    let header = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![h_id, w_id],
+    });
+    let s_id = engine.structure.add_node(NodeKind::Matrix {
+        name: Ident::new("S"),
+        rows: Reference::VariableRef(h_id),
+        cols: Reference::VariableRef(w_id),
+    });
+
+    if let Some(root) = engine.structure.get_mut(engine.structure.root()) {
+        root.set_kind(NodeKind::Sequence {
+            children: vec![header, s_id],
+        });
+    }
+
+    for (node_id, value) in [(h_id, 3), (w_id, 4)] {
+        engine.constraints.add(
+            Some(node_id),
+            Constraint::TypeDecl {
+                target: Reference::VariableRef(node_id),
+                expected: ExpectedType::Int,
+            },
+        );
+        engine.constraints.add(
+            Some(node_id),
+            Constraint::Range {
+                target: Reference::VariableRef(node_id),
+                lower: Expression::Lit(value),
+                upper: Expression::Lit(value),
+            },
+        );
+    }
+    engine.constraints.add(
+        Some(s_id),
+        Constraint::TypeDecl {
+            target: Reference::VariableRef(s_id),
+            expected: ExpectedType::Char,
+        },
+    );
+    engine.constraints.add(
+        Some(s_id),
+        Constraint::CharSet {
+            target: Reference::VariableRef(s_id),
+            charset: CharSetSpec::Custom(vec!['.', '#']),
+        },
+    );
+
+    let sample = generate(&engine, 42).expect("sample should generate");
+    let Some(SampleValue::Grid(rows)) = sample.values.get(&s_id) else {
+        panic!("S should be a grid");
+    };
+
+    assert_eq!(rows.len(), 3);
+    for row in rows {
+        assert_eq!(row.len(), 4);
+        for value in row {
+            let SampleValue::Str(cell) = value else {
+                panic!("grid cell should be a character string");
+            };
+            assert!(
+                cell == "." || cell == "#",
+                "cell should respect custom charset, got {cell}"
+            );
+        }
+    }
+
+    let text = sample_to_text(&engine, &sample);
+    for line in text.lines().skip(1) {
+        assert_eq!(line.len(), 4);
+        assert!(line.chars().all(|c| c == '.' || c == '#'));
+    }
+}

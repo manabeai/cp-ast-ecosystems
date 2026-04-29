@@ -603,18 +603,44 @@ impl<'a> GenerationContext<'a> {
         let rows = self.resolve_reference_as_int(rows_ref)?;
         let cols = self.resolve_reference_as_int(cols_ref)?;
         let constraints = get_node_constraints(self.engine, node_id);
-        let (lo, hi) = self.resolve_range(&constraints)?;
+        let expected_type = constraints.iter().find_map(|c| {
+            if let Constraint::TypeDecl { expected, .. } = c {
+                Some(expected.clone())
+            } else {
+                None
+            }
+        });
 
         let rows_usize = usize::try_from(rows).unwrap_or(0);
         let cols_usize = usize::try_from(cols).unwrap_or(0);
 
-        let grid: Vec<Vec<SampleValue>> = (0..rows_usize)
-            .map(|_| {
-                (0..cols_usize)
-                    .map(|_| SampleValue::Int(self.rng.gen_range(lo..=hi)))
+        let grid: Vec<Vec<SampleValue>> = match expected_type.as_ref().unwrap_or(&ExpectedType::Int)
+        {
+            ExpectedType::Int => {
+                let (lo, hi) = self.resolve_range(&constraints)?;
+                (0..rows_usize)
+                    .map(|_| {
+                        (0..cols_usize)
+                            .map(|_| SampleValue::Int(self.rng.gen_range(lo..=hi)))
+                            .collect()
+                    })
                     .collect()
-            })
-            .collect();
+            }
+            ExpectedType::Char | ExpectedType::Str => {
+                let charset = resolve_charset(&constraints);
+                (0..rows_usize)
+                    .map(|_| {
+                        (0..cols_usize)
+                            .map(|_| {
+                                SampleValue::Str(
+                                    random_char_from_spec(&charset, &mut self.rng).to_string(),
+                                )
+                            })
+                            .collect()
+                    })
+                    .collect()
+            }
+        };
 
         self.values.insert(node_id, SampleValue::Grid(grid));
         Ok(())

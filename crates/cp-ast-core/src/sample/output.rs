@@ -50,8 +50,7 @@ fn emit_node(engine: &AstEngine, node_id: NodeId, sample: &GeneratedSample, outp
         NodeKind::Matrix { .. } => {
             if let Some(SampleValue::Grid(rows)) = sample.values.get(&node_id) {
                 for row in rows {
-                    let line: Vec<String> = row.iter().map(format_value).collect();
-                    output.push_str(&line.join(" "));
+                    output.push_str(&format_grid_row(row));
                     output.push('\n');
                 }
             }
@@ -277,5 +276,13 @@ fn format_value(value: &SampleValue) -> String {
             .map(|row| row.iter().map(format_value).collect::<Vec<_>>().join(" "))
             .collect::<Vec<_>>()
             .join("\n"),
+    }
+}
+
+fn format_grid_row(row: &[SampleValue]) -> String {
+    if row.iter().all(|value| matches!(value, SampleValue::Str(_))) {
+        row.iter().map(format_value).collect()
+    } else {
+        row.iter().map(format_value).collect::<Vec<_>>().join(" ")
     }
 }

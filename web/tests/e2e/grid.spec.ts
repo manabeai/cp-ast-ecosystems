@@ -87,6 +87,42 @@ test.describe('グリッド: H W / S_1...S_H', () => {
     await expect(completed.first()).toBeVisible();
   });
 
+  test('custom charset の文字グリッド sample は指定文字だけを出す', async () => {
+    await editor.addScalar('H');
+    await editor.addScalarRight('W');
+
+    await editor.clickHotspot('below');
+    await editor.selectPopupOption('grid-template');
+    await editor.selectLength('H');
+    await editor.selectLength('W');
+    await editor.confirm();
+
+    await editor.openDraft(0);
+    await editor.fillBoundLiteral('lower', '2');
+    await editor.fillBoundLiteral('upper', '2');
+    await editor.confirmConstraint();
+
+    await editor.openDraft(0);
+    await editor.fillBoundLiteral('lower', '3');
+    await editor.fillBoundLiteral('upper', '3');
+    await editor.confirmConstraint();
+
+    await editor.openDraft(0);
+    await editor.page.getByTestId('charset-option-custom').click();
+    await editor.page.getByTestId('charset-char-input-0').fill('.');
+    await editor.page.getByTestId('charset-add-char').click();
+    await editor.page.getByTestId('charset-char-input-1').fill('#');
+    await editor.confirmConstraint();
+
+    const sample = await editor.getSampleOutput().textContent();
+    const lines = sample?.trim().split('\n') ?? [];
+    expect(lines).toHaveLength(3);
+    expect(lines[0].trim()).toBe('2 3');
+    for (const line of lines.slice(1)) {
+      expect(line).toMatch(/^[.#]{3}$/);
+    }
+  });
+
   test('完成状態: グリッド + 制約 + 右ペイン検証', async () => {
     // Structure 構築
     await editor.addScalar('H');
