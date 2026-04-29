@@ -65,6 +65,16 @@ export function buildArrayFill(
   };
 }
 
+export function buildRepeatFill(
+  countExpr: string,
+  availableVars: ExprCandidate[],
+): FillContent {
+  return {
+    kind: 'Repeat',
+    count: buildLengthSpec(countExpr, availableVars),
+  };
+}
+
 export function buildGridTemplateFill(
   rowsVar: string,
   colsVar: string,
@@ -288,6 +298,8 @@ export function buildFillFromPopup(
       return buildScalarFill(name, uiType);
     case 'array':
       return buildArrayFill(name, uiType, lengthVar, availableVars);
+    case 'repeat':
+      return buildRepeatFill(countExpr, availableVars);
     case 'grid-template':
       return buildGridTemplateFill(lengthVar, lengthVar2, availableVars);
     case 'edge-list':

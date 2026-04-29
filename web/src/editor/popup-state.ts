@@ -98,6 +98,10 @@ export function selectCountVar(v: ExprCandidate): void {
   countExprState.value = { step: 'built', varName: v.name, nodeId: v.node_id, displayValue: v.name };
 }
 
+export function setCountExprValue(value: string): void {
+  countExprState.value = { step: 'idle', value };
+}
+
 export function openCountFnSelect(varName: string, nodeId: string, displayValue: string): void {
   countExprState.value = { step: 'fn-select', varName, nodeId, displayValue };
 }

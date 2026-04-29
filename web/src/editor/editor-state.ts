@@ -25,6 +25,11 @@ export interface ProjectedNode {
   is_hole: boolean;
 }
 
+export interface StructureLine {
+  depth: number;
+  nodes: ProjectedNode[];
+}
+
 export interface Hotspot {
   parent_id: string;
   direction: 'below' | 'right' | 'inside' | 'variant';
@@ -64,6 +69,7 @@ export interface CompletenessSummary {
 
 export interface FullProjection {
   nodes: ProjectedNode[];
+  structure_lines: StructureLine[];
   hotspots: Hotspot[];
   constraints: ProjectedConstraints;
   available_vars: ExprCandidate[];
@@ -88,6 +94,7 @@ function safeCall<T>(fn: () => T, fallback: T): T {
 
 const emptyProjection: FullProjection = {
   nodes: [],
+  structure_lines: [],
   hotspots: [],
   constraints: { drafts: [], completed: [] },
   available_vars: [],

@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildScalarFill,
   buildArrayFill,
+  buildRepeatFill,
   buildGridTemplateFill,
   buildEdgeListFill,
   buildWeightedEdgeListFill,
@@ -61,6 +62,14 @@ describe('FillContent builders', () => {
       rows: { kind: 'RefVar', node_id: '1' },
       cols: { kind: 'RefVar', node_id: '2' },
       cell_type: 'Char',
+    });
+  });
+
+  it('builds Repeat fill', () => {
+    const fill = buildRepeatFill('N', VARS);
+    expect(fill).toEqual({
+      kind: 'Repeat',
+      count: { kind: 'RefVar', node_id: '1' },
     });
   });
 
@@ -173,6 +182,11 @@ describe('buildFillFromPopup', () => {
   it('routes array correctly', () => {
     const fill = buildFillFromPopup('array', 'A', 'number', 'N', '', '', '', VARS);
     expect(fill.kind).toBe('Array');
+  });
+
+  it('routes repeat correctly', () => {
+    const fill = buildFillFromPopup('repeat', '', '', '', '', '', 'N', VARS);
+    expect(fill.kind).toBe('Repeat');
   });
 
   it('routes edge-list with expression', () => {

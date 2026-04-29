@@ -82,6 +82,17 @@ impl AstEngine {
                     length: length_expr,
                 }
             }
+            FillContent::Repeat { count } | FillContent::MultiTestCaseTemplate { count } => {
+                let hole = self.structure.add_node(NodeKind::Hole {
+                    expected_kind: None,
+                });
+                created.push(hole);
+                NodeKind::Repeat {
+                    count: length_spec_to_expression(count),
+                    index_var: None,
+                    body: vec![hole],
+                }
+            }
             FillContent::Grid {
                 name, rows, cols, ..
             }
@@ -166,17 +177,6 @@ impl AstEngine {
                     count: length_spec_to_expression(query_count),
                     index_var: None,
                     body: vec![choice],
-                }
-            }
-            FillContent::MultiTestCaseTemplate { count } => {
-                let hole = self.structure.add_node(NodeKind::Hole {
-                    expected_kind: None,
-                });
-                created.push(hole);
-                NodeKind::Repeat {
-                    count: length_spec_to_expression(count),
-                    index_var: None,
-                    body: vec![hole],
                 }
             }
         }

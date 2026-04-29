@@ -31,6 +31,7 @@ import { CountField, getCountExprValue } from './ExpressionBuilder';
 const CANDIDATE_LABELS: Record<string, string> = {
   scalar: 'Scalar',
   array: 'Array',
+  repeat: 'Repeat',
   'grid-template': 'Grid',
   'edge-list': 'Edge List',
   'weighted-edge-list': 'Weighted Edge List',
@@ -41,6 +42,7 @@ const CANDIDATE_LABELS: Record<string, string> = {
 const PREVIEW_FIELDS: Record<string, string[]> = {
   scalar: ['Type', 'Name'],
   array: ['Type', 'Name', 'Length'],
+  repeat: ['Count'],
   'grid-template': ['Rows', 'Cols'],
   'edge-list': ['Count'],
   'weighted-edge-list': ['Count', 'Weight', 'Type'],
@@ -125,11 +127,14 @@ function VariantFieldsPanel() {
   if (state.step !== 'fields') return null;
 
   const handleConfirm = () => {
+    if (!isVariantValid()) return;
     const tagNum = parseInt(popupVariantTag.value, 10) || 0;
     const actionJson = buildAddChoiceVariant(state.hotspot.parent_id, tagNum, popupName.value);
     dispatchAction(actionJson);
     closePopup();
   };
+
+  const isVariantValid = () => popupVariantTag.value.trim() !== '' && popupName.value.trim() !== '';
 
   return (
     <div class="popup-fields">
@@ -151,7 +156,12 @@ function VariantFieldsPanel() {
           onInput={(e) => { popupName.value = (e.target as HTMLInputElement).value; }}
         />
       </div>
-      <button class="popup-confirm" data-testid="confirm-button" onClick={handleConfirm}>
+      <button
+        class="popup-confirm"
+        data-testid="confirm-button"
+        disabled={!isVariantValid()}
+        onClick={handleConfirm}
+      >
         Confirm
       </button>
     </div>
@@ -168,9 +178,9 @@ function FieldsPanel() {
 
   const needsType = candidate === 'scalar' || candidate === 'array' || candidate === 'weighted-edge-list';
   const needsName = candidate === 'scalar' || candidate === 'array';
-  const needsLength = candidate === 'array' || candidate === 'query-list' || candidate === 'multi-testcase' || candidate === 'weighted-edge-list' || candidate === 'edge-list';
+  const needsLength = candidate === 'array' || candidate === 'query-list' || candidate === 'multi-testcase' || candidate === 'weighted-edge-list';
   const needsGridLength = candidate === 'grid-template';
-  const needsCountExpr = candidate === 'edge-list';
+  const needsCountExpr = candidate === 'edge-list' || candidate === 'repeat';
   const needsWeightName = candidate === 'weighted-edge-list';
 
   // For grid-template, we need TWO length selectors. The first unset one gets the testid.
@@ -178,6 +188,7 @@ function FieldsPanel() {
   const gridColsSet = popupLengthVar2.value !== '';
 
   const handleConfirm = () => {
+    if (!isValid()) return;
     const countExpr = needsCountExpr ? (getCountExprValue() || popupLengthVar.value) : '';
     const fill = buildFillFromPopup(
       candidate,
@@ -192,6 +203,18 @@ function FieldsPanel() {
     const actionJson = buildHotspotAction(state.hotspot, fill, proj.nodes);
     dispatchAction(actionJson);
     closePopup();
+  };
+
+  const hasLength = popupLengthVar.value.trim() !== '';
+  const hasSecondLength = popupLengthVar2.value.trim() !== '';
+  const hasCount = (getCountExprValue() || popupLengthVar.value).trim() !== '';
+  const isValid = () => {
+    if (needsName && popupName.value.trim() === '') return false;
+    if (needsLength && !hasLength) return false;
+    if (needsGridLength && (!hasLength || !hasSecondLength)) return false;
+    if (needsCountExpr && !hasCount) return false;
+    if (needsWeightName && popupWeightName.value.trim() === '') return false;
+    return true;
   };
 
   return (
@@ -240,16 +263,12 @@ function FieldsPanel() {
       {needsLength && (
         <div class="popup-field">
           <label>Length</label>
-          <select
-            data-testid="length-select"
+          <LengthField
             value={popupLengthVar.value}
-            onChange={(e) => { popupLengthVar.value = (e.target as HTMLSelectElement).value; }}
-          >
-            <option value="">-- select --</option>
-            {availableVars.map(v => (
-              <option key={v.name} value={v.name}>{v.name}</option>
-            ))}
-          </select>
+            onChange={(value) => { popupLengthVar.value = value; }}
+            availableVars={availableVars}
+            testId="length-select"
+          />
         </div>
       )}
 
@@ -257,29 +276,21 @@ function FieldsPanel() {
         <>
           <div class="popup-field">
             <label>Rows</label>
-            <select
-              data-testid={!gridRowsSet ? 'length-select' : undefined}
+            <LengthField
               value={popupLengthVar.value}
-              onChange={(e) => { popupLengthVar.value = (e.target as HTMLSelectElement).value; }}
-            >
-              <option value="">-- select --</option>
-              {availableVars.map(v => (
-                <option key={v.name} value={v.name}>{v.name}</option>
-              ))}
-            </select>
+              onChange={(value) => { popupLengthVar.value = value; }}
+              availableVars={availableVars}
+              testId={!gridRowsSet ? 'length-select' : undefined}
+            />
           </div>
           <div class="popup-field">
             <label>Cols</label>
-            <select
-              data-testid={gridRowsSet && !gridColsSet ? 'length-select' : undefined}
+            <LengthField
               value={popupLengthVar2.value}
-              onChange={(e) => { popupLengthVar2.value = (e.target as HTMLSelectElement).value; }}
-            >
-              <option value="">-- select --</option>
-              {availableVars.map(v => (
-                <option key={v.name} value={v.name}>{v.name}</option>
-              ))}
-            </select>
+              onChange={(value) => { popupLengthVar2.value = value; }}
+              availableVars={availableVars}
+              testId={gridRowsSet && !gridColsSet ? 'length-select' : undefined}
+            />
           </div>
         </>
       )}
@@ -303,9 +314,63 @@ function FieldsPanel() {
         </div>
       )}
 
-      <button class="popup-confirm" data-testid="confirm-button" onClick={handleConfirm}>
+      <button
+        class="popup-confirm"
+        data-testid="confirm-button"
+        disabled={!isValid()}
+        onClick={handleConfirm}
+      >
         Confirm
       </button>
+    </div>
+  );
+}
+
+function LengthField({
+  value,
+  onChange,
+  availableVars,
+  testId,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  availableVars: { name: string }[];
+  testId?: string;
+}) {
+  return (
+    <div class="length-field">
+      <div class="length-var-options">
+        {availableVars.map(v => (
+          <button
+            key={v.name}
+            type="button"
+            class={`length-var-option ${value === v.name ? 'active' : ''}`}
+            data-testid={`length-var-option-${v.name}`}
+            onClick={() => onChange(v.name)}
+          >
+            {v.name}
+          </button>
+        ))}
+      </div>
+      <input
+        class="length-expression-input"
+        data-testid="length-expression-input"
+        type="text"
+        placeholder="length expression"
+        value={value}
+        onInput={(e) => onChange((e.currentTarget as HTMLInputElement).value)}
+      />
+      <select
+        data-testid={testId}
+        value={value}
+        onChange={(e) => onChange((e.currentTarget as HTMLSelectElement).value)}
+        style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0, overflow: 'hidden' }}
+      >
+        <option value="">-- select --</option>
+        {availableVars.map(v => (
+          <option key={v.name} value={v.name}>{v.name}</option>
+        ))}
+      </select>
     </div>
   );
 }

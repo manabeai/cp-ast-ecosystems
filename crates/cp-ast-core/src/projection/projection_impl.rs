@@ -10,7 +10,18 @@ use crate::structure::{NodeId, NodeKind};
 impl ProjectionAPI for AstEngine {
     fn nodes(&self) -> Vec<ProjectedNode> {
         let mut result = Vec::new();
-        let mut stack = vec![(self.structure.root(), 0)]; // (node_id, depth)
+        let root_id = self.structure.root();
+        let mut stack = Vec::new();
+
+        if let Some(root) = self.structure.get(root_id) {
+            if is_hidden_root(root.kind()) {
+                for &child_id in children_of(root.kind()).iter().rev() {
+                    stack.push((child_id, 0));
+                }
+            } else {
+                stack.push((root_id, 0));
+            }
+        }
 
         while let Some((node_id, depth)) = stack.pop() {
             if let Some(node) = self.structure.get(node_id) {
@@ -159,7 +170,7 @@ impl ProjectionAPI for AstEngine {
 }
 
 /// Generate display label for a node kind.
-fn make_label(kind: &NodeKind) -> String {
+pub(super) fn make_label(kind: &NodeKind) -> String {
     match kind {
         NodeKind::Scalar { name } => name.as_str().to_owned(),
         NodeKind::Array { name, .. } => format!("{}[]", name.as_str()),
@@ -171,6 +182,10 @@ fn make_label(kind: &NodeKind) -> String {
         NodeKind::Choice { .. } => "Choice".to_owned(),
         NodeKind::Hole { .. } => "[ ]".to_owned(),
     }
+}
+
+fn is_hidden_root(kind: &NodeKind) -> bool {
+    matches!(kind, NodeKind::Sequence { .. })
 }
 
 /// Get child node IDs for DFS traversal.

@@ -42,6 +42,21 @@ export class EditorPage {
       .click();
   }
 
+  getStructureNodeByLabel(label: string): Locator {
+    return this.structurePane.locator('.structure-node').filter({
+      has: this.page.locator('.node-label', { hasText: label }),
+    }).first();
+  }
+
+  async clickHotspotForNode(
+    label: string,
+    direction: 'right' | 'inside' | 'variant' = 'right',
+  ): Promise<void> {
+    await this.getStructureNodeByLabel(label)
+      .getByTestId(`insertion-hotspot-${direction}`)
+      .click();
+  }
+
   async selectPopupOption(option: string): Promise<void> {
     await this.nodePopup.waitFor({ state: 'visible' });
     await this.page.getByTestId(`popup-option-${option}`).click();
@@ -57,6 +72,18 @@ export class EditorPage {
 
   async selectLength(varName: string): Promise<void> {
     await this.page.getByTestId('length-select').selectOption(varName);
+  }
+
+  async pickLengthVar(varName: string): Promise<void> {
+    await this.page.getByTestId(`length-var-option-${varName}`).click();
+  }
+
+  async fillLengthExpression(value: string): Promise<void> {
+    await this.page.getByTestId('length-expression-input').fill(value);
+  }
+
+  async pickCountVar(varName: string): Promise<void> {
+    await this.page.getByTestId(`count-var-option-${varName}`).click();
   }
 
   /**
@@ -75,7 +102,7 @@ export class EditorPage {
     // 1. Click the count field to open variable list
     await this.page.getByTestId('count-field').click();
     // 2. Select the base variable
-    await this.page.getByTestId(`count-var-option-${baseVar}`).click();
+    await this.pickCountVar(baseVar);
     // 3. Click the variable element in the expression to open function popup
     await this.page.getByTestId(`expression-element-${baseVar}`).click();
     // 4. Select the operation (e.g., subtract, add, multiply, divide, min, max)
@@ -123,7 +150,7 @@ export class EditorPage {
     await this.selectPopupOption('array');
     await this.selectType(type);
     await this.inputName(name);
-    await this.selectLength(lengthVar);
+    await this.pickLengthVar(lengthVar);
     await this.confirm();
   }
 

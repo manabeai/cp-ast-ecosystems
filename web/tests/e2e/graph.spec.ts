@@ -34,7 +34,7 @@ test.describe('グラフ入力: N M / u_i v_i × M', () => {
     // 辺リストテンプレート（count = M）
     await editor.clickHotspot('below');
     await editor.selectPopupOption('edge-list');
-    await editor.selectLength('M');
+    await editor.pickCountVar('M');
     await editor.confirm();
 
     // Structure ペインに辺リスト表示
@@ -72,7 +72,7 @@ test.describe('グラフ入力: N M / u_i v_i × M', () => {
 
     await editor.clickHotspot('below');
     await editor.selectPopupOption('edge-list');
-    await editor.selectLength('M');
+    await editor.pickCountVar('M');
     await editor.confirm();
 
     // 制約を埋める

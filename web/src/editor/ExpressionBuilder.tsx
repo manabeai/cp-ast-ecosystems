@@ -65,8 +65,8 @@ export function FunctionOperandInput({ onConfirm }: FunctionOperandInputProps) {
 
 import {
   countExprState,
-  openCountVarList,
   selectCountVar,
+  setCountExprValue,
   openCountFnSelect,
   selectCountFnOp,
   applyCountFnOperand,
@@ -78,31 +78,15 @@ interface CountFieldProps {
 
 export function CountField({ availableVars }: CountFieldProps) {
   const state = countExprState.value;
+  const value = getCountExprValue();
 
   return (
     <div class="count-field-container">
       <div
         class="count-field"
         data-testid="count-field"
-        onClick={() => {
-          if (state.step === 'idle') openCountVarList();
-        }}
       >
         {state.step === 'idle' && <span class="count-placeholder">select count...</span>}
-        {state.step === 'var-list' && (
-          <div class="count-var-list">
-            {availableVars.map(v => (
-              <button
-                key={v.name}
-                class="count-var-option"
-                data-testid={`count-var-option-${v.name}`}
-                onClick={(e) => { e.stopPropagation(); selectCountVar(v); }}
-              >
-                {v.name}
-              </button>
-            ))}
-          </div>
-        )}
         {(state.step === 'built' || state.step === 'fn-select' || state.step === 'fn-operand') && (
           <span
             class="expression-element"
@@ -118,6 +102,27 @@ export function CountField({ availableVars }: CountFieldProps) {
           </span>
         )}
       </div>
+      <div class="length-var-options">
+        {availableVars.map(v => (
+          <button
+            key={v.name}
+            type="button"
+            class={`length-var-option ${value === v.name ? 'active' : ''}`}
+            data-testid={`count-var-option-${v.name}`}
+            onClick={() => selectCountVar(v)}
+          >
+            {v.name}
+          </button>
+        ))}
+      </div>
+      <input
+        class="length-expression-input"
+        data-testid="count-expression-input"
+        type="text"
+        placeholder="count expression"
+        value={value}
+        onInput={(e) => setCountExprValue((e.currentTarget as HTMLInputElement).value)}
+      />
 
       {state.step === 'fn-select' && (
         <FunctionOpsPanel onSelectOp={selectCountFnOp} />

@@ -181,6 +181,9 @@ fn fill_content_to_dto(fc: &FillContent) -> FillContentDto {
             element_type: var_type_str(element_type),
             length: length_spec_to_dto(length),
         },
+        FillContent::Repeat { count } => FillContentDto::Repeat {
+            count: length_spec_to_dto(count),
+        },
         FillContent::Grid {
             name,
             rows,
@@ -245,6 +248,9 @@ fn dto_to_fill_content(dto: &FillContentDto) -> Result<FillContent, ConversionEr
             name: name.clone(),
             element_type: str_to_var_type(element_type)?,
             length: dto_to_length_spec(length)?,
+        }),
+        FillContentDto::Repeat { count } => Ok(FillContent::Repeat {
+            count: dto_to_length_spec(count)?,
         }),
         FillContentDto::Grid {
             name,

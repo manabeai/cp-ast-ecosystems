@@ -27,7 +27,8 @@ test.describe('基本配列: N + A_1...A_N', () => {
     await editor.goto();
   });
 
-  test('初期状態: insertion hotspot が 1 つ見える', async () => {
+  test('初期状態: root Sequence は表示せず insertion hotspot だけ見せる', async () => {
+    await expect(editor.structurePane).not.toContainText('Sequence');
     await expect(editor.insertionHotspots.first()).toBeVisible();
   });
 
@@ -64,6 +65,38 @@ test.describe('基本配列: N + A_1...A_N', () => {
 
     // sample が 2 行以上
     await expectSampleLines(editor, 2);
+  });
+
+  test('N の右に横配列 A を追加すると同じ Structure 行に表示される', async () => {
+    await editor.addScalar('N');
+
+    await editor.clickHotspotForNode('N', 'right');
+    await editor.selectPopupOption('array');
+    await editor.selectType('number');
+    await editor.inputName('A');
+    await expect(editor.page.getByTestId('length-var-option-N')).toBeVisible();
+    await editor.pickLengthVar('N');
+    await editor.confirm();
+
+    const nLine = editor.getStructureNodeByLabel('N').locator('..');
+    await expect(nLine).toContainText('N');
+    await expect(nLine).toContainText('A');
+    await expect(editor.getStructureNodeByLabel('N').getByTestId('insertion-hotspot-right')).toHaveCount(0);
+    await expect(editor.getStructureNodeByLabel('A').getByTestId('insertion-hotspot-right')).toBeVisible();
+  });
+
+  test('Array は必須項目が埋まるまで confirm できない', async () => {
+    await editor.addScalar('N');
+
+    await editor.clickHotspotForNode('N', 'right');
+    await editor.selectPopupOption('array');
+    await expect(editor.page.getByTestId('confirm-button')).toBeDisabled();
+
+    await editor.inputName('A');
+    await expect(editor.page.getByTestId('confirm-button')).toBeDisabled();
+
+    await editor.pickLengthVar('N');
+    await expect(editor.page.getByTestId('confirm-button')).toBeEnabled();
   });
 
   test('draft constraint を埋めて completed に昇格する', async () => {

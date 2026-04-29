@@ -62,10 +62,18 @@ pub struct CompletenessSummary {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct FullProjection {
     pub nodes: Vec<ProjectedNode>,
+    pub structure_lines: Vec<StructureLine>,
     pub hotspots: Vec<Hotspot>,
     pub constraints: ProjectedConstraints,
     pub available_vars: Vec<ExprCandidate>,
     pub completeness: CompletenessSummary,
+}
+
+/// A display row in the Structure pane.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct StructureLine {
+    pub depth: usize,
+    pub nodes: Vec<ProjectedNode>,
 }
 
 /// Projected constraints split into draft and completed.

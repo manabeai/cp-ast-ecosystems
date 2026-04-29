@@ -33,6 +33,8 @@ pub enum FillContent {
         element_type: VarType,
         length: LengthSpec,
     },
+    /// Fill with a generic repeat block.
+    Repeat { count: LengthSpec },
     /// Fill with a 2D grid.
     Grid {
         name: String,

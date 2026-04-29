@@ -17,13 +17,18 @@ fn nodes_returns_dfs_order() {
         });
     }
     let nodes = engine.nodes();
-    assert_eq!(nodes.len(), 3); // root Sequence + N + hole
-    assert_eq!(nodes[0].label, "Sequence");
+    assert_eq!(nodes.len(), 2); // N + hole (root Sequence is hidden from UI projection)
+    assert_eq!(nodes[0].label, "N");
     assert_eq!(nodes[0].depth, 0);
-    assert_eq!(nodes[1].label, "N");
-    assert_eq!(nodes[1].depth, 1);
-    assert!(nodes[2].is_hole);
-    assert_eq!(nodes[2].depth, 1);
+    assert!(nodes[1].is_hole);
+    assert_eq!(nodes[1].depth, 0);
+}
+
+#[test]
+fn empty_root_sequence_is_hidden_from_nodes_projection() {
+    let engine = AstEngine::new();
+    let nodes = engine.nodes();
+    assert!(nodes.is_empty());
 }
 
 #[test]

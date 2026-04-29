@@ -2,14 +2,14 @@
  * Structure pane: renders projected nodes and hotspots.
  */
 import { projection, dispatchAction } from './editor-state';
-import type { Hotspot } from './editor-state';
+import type { Hotspot, ProjectedNode, StructureLine } from './editor-state';
 import { openPopup, popupState, nodeEditState, nodeEditName, openNodeEdit, closeNodeEdit } from './popup-state';
 import { NodePopup } from './NodePopup';
 import { buildReplaceNode } from './action-builder';
 import { structureFolded, toggleStructureFold } from './fold-state';
 
 type RenderItem =
-  | { type: 'node'; node: { id: string; label: string; depth: number; is_hole: boolean }; hotspots: Hotspot[] }
+  | { type: 'line'; line: StructureLine; nodeHotspots: Map<string, Hotspot[]> }
   | { type: 'below'; hotspot: Hotspot; depth: number };
 
 /**
@@ -18,17 +18,17 @@ type RenderItem =
  * with the parent node), so that DOM order matches visual nesting order.
  */
 function buildRenderItems(
-  nodes: { id: string; label: string; depth: number; is_hole: boolean }[],
+  lines: StructureLine[],
   hotspotsByParent: Map<string, Hotspot[]>,
 ): RenderItem[] {
   const items: RenderItem[] = [];
   const pendingBelow: { depth: number; hotspot: Hotspot }[] = [];
 
-  for (const node of nodes) {
+  for (const line of lines) {
     // Flush pending "below" hotspots whose subtree just ended
     while (pendingBelow.length > 0) {
       const top = pendingBelow[pendingBelow.length - 1];
-      if (top.depth >= node.depth) {
+      if (top.depth >= line.depth) {
         pendingBelow.pop();
         items.push({ type: 'below', hotspot: top.hotspot, depth: top.depth + 1 });
       } else {
@@ -36,15 +36,21 @@ function buildRenderItems(
       }
     }
 
-    const nodeHotspots = hotspotsByParent.get(node.id) ?? [];
-    const belowHotspot = nodeHotspots.find(h => h.direction === 'below');
-    const otherHotspots = nodeHotspots.filter(h => h.direction !== 'below');
+    const nodeHotspots = new Map<string, Hotspot[]>();
+    const belowHotspots: { depth: number; hotspot: Hotspot }[] = [];
 
-    items.push({ type: 'node', node, hotspots: otherHotspots });
-
-    if (belowHotspot) {
-      pendingBelow.push({ depth: node.depth, hotspot: belowHotspot });
+    for (const node of line.nodes) {
+      const hotspots = hotspotsByParent.get(node.id) ?? [];
+      const belowHotspot = hotspots.find(h => h.direction === 'below');
+      const otherHotspots = hotspots.filter(h => h.direction !== 'below');
+      nodeHotspots.set(node.id, otherHotspots);
+      if (belowHotspot) {
+        belowHotspots.push({ depth: line.depth, hotspot: belowHotspot });
+      }
     }
+
+    items.push({ type: 'line', line, nodeHotspots });
+    pendingBelow.push(...belowHotspots);
   }
 
   // Flush remaining (deepest first)
@@ -58,6 +64,10 @@ function buildRenderItems(
 
 export function StructurePane() {
   const proj = projection.value;
+  const visibleNodeIds = new Set(proj.nodes.map(node => node.id));
+  const orphanBelowHotspots = proj.hotspots.filter(
+    h => h.direction === 'below' && !visibleNodeIds.has(h.parent_id),
+  );
 
   const hotspotsByParent = new Map<string, Hotspot[]>();
   for (const h of proj.hotspots) {
@@ -66,8 +76,13 @@ export function StructurePane() {
     hotspotsByParent.set(h.parent_id, list);
   }
 
-  const items = proj.nodes.length > 0
-    ? buildRenderItems(proj.nodes, hotspotsByParent)
+  const lines = proj.structure_lines.length > 0 ? proj.structure_lines : proj.nodes.map(node => ({
+    depth: node.depth,
+    nodes: [node],
+  }));
+
+  const items = lines.length > 0
+    ? buildRenderItems(lines, hotspotsByParent)
     : [];
 
   const folded = structureFolded.value;
@@ -89,31 +104,19 @@ export function StructurePane() {
           </div>
         )}
         {items.map(item => {
-          if (item.type === 'node') {
-            const editState = nodeEditState.value;
-            const isEditing = editState.step === 'editing' && editState.nodeId === item.node.id;
-            
+          if (item.type === 'line') {
             return (
-              <div key={item.node.id} class="structure-node" style={{ paddingLeft: `${item.node.depth * 1.2}rem` }}>
-                {isEditing ? (
-                  <NodeInlineEdit
-                    nodeId={item.node.id}
-                    currentLabel={item.node.label}
+              <div
+                key={item.line.nodes.map(node => node.id).join('-')}
+                class="structure-line"
+                style={{ paddingLeft: `${item.line.depth * 1.2}rem` }}
+              >
+                {item.line.nodes.map(node => (
+                  <StructureNodeView
+                    key={node.id}
+                    node={node}
+                    hotspots={item.nodeHotspots.get(node.id) ?? []}
                   />
-                ) : (
-                  <span
-                    class={`node-label ${item.node.is_hole ? 'node-hole' : 'node-editable'}`}
-                    onClick={() => {
-                      if (!item.node.is_hole) {
-                        openNodeEdit(item.node.id, item.node.label);
-                      }
-                    }}
-                  >
-                    {item.node.label}
-                  </span>
-                )}
-                {item.hotspots.map(h => (
-                  <HotspotButton key={`${h.direction}-${h.parent_id}`} hotspot={h} />
                 ))}
               </div>
             );
@@ -124,9 +127,49 @@ export function StructurePane() {
             </div>
           );
         })}
+        {proj.nodes.length > 0 && orphanBelowHotspots.map(h => (
+          <div key={`orphan-below-${h.parent_id}`} class="structure-node">
+            <HotspotButton hotspot={h} />
+          </div>
+        ))}
 
         {popupState.value.step !== 'closed' && <NodePopup />}
       </div>
+    </div>
+  );
+}
+
+function StructureNodeView({ node, hotspots }: { node: ProjectedNode; hotspots: Hotspot[] }) {
+  const editState = nodeEditState.value;
+  const isEditing = editState.step === 'editing' && editState.nodeId === node.id;
+
+  return (
+    <div
+      class="structure-node"
+      data-testid={`structure-node-${node.id}`}
+      data-node-id={node.id}
+      data-node-label={node.label}
+    >
+      {isEditing ? (
+        <NodeInlineEdit
+          nodeId={node.id}
+          currentLabel={node.label}
+        />
+      ) : (
+        <span
+          class={`node-label ${node.is_hole ? 'node-hole' : 'node-editable'}`}
+          onClick={() => {
+            if (!node.is_hole) {
+              openNodeEdit(node.id, node.label);
+            }
+          }}
+        >
+          {node.label}
+        </span>
+      )}
+      {hotspots.map(h => (
+        <HotspotButton key={`${h.direction}-${h.parent_id}`} hotspot={h} />
+      ))}
     </div>
   );
 }
@@ -188,6 +231,8 @@ function HotspotButton({ hotspot }: { hotspot: Hotspot }) {
     <button
       class={`hotspot-btn hotspot-${hotspot.direction}`}
       data-testid={`insertion-hotspot-${hotspot.direction}`}
+      data-parent-id={hotspot.parent_id}
+      data-hotspot-direction={hotspot.direction}
       onClick={() => openPopup(hotspot)}
     >
       {hotspot.direction === 'below' && '＋↓'}

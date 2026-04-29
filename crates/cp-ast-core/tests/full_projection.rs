@@ -2,6 +2,7 @@ use cp_ast_core::operation::action::Action;
 use cp_ast_core::operation::engine::AstEngine;
 use cp_ast_core::operation::types::{FillContent, VarType};
 use cp_ast_core::projection::types::HotspotDirection;
+use cp_ast_core::structure::{Ident, NodeKind};
 
 #[test]
 fn empty_engine_has_below_hotspot() {
@@ -62,6 +63,54 @@ fn scalar_has_right_hotspot() {
         right.is_some(),
         "Scalar in Sequence should have Right hotspot"
     );
+    let right = right.unwrap();
+    assert!(right.candidates.iter().any(|c| c == "scalar"));
+    assert!(right.candidates.iter().any(|c| c == "array"));
+}
+
+#[test]
+fn tuple_projects_as_single_structure_line() {
+    let mut engine = AstEngine::new();
+    let n = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    let a = engine.structure.add_node(NodeKind::Array {
+        name: Ident::new("A"),
+        length: cp_ast_core::constraint::Expression::Var(
+            cp_ast_core::structure::Reference::VariableRef(n),
+        ),
+    });
+    let tuple = engine.structure.add_node(NodeKind::Tuple {
+        elements: vec![n, a],
+    });
+    let root = engine.structure.root();
+    engine
+        .structure
+        .get_mut(root)
+        .unwrap()
+        .set_kind(NodeKind::Sequence {
+            children: vec![tuple],
+        });
+
+    let proj = cp_ast_core::projection::project_full(&engine);
+    assert_eq!(proj.structure_lines.len(), 1);
+    let labels: Vec<&str> = proj.structure_lines[0]
+        .nodes
+        .iter()
+        .map(|node| node.label.as_str())
+        .collect();
+    assert_eq!(labels, vec!["N", "A[]"]);
+
+    let n_right = proj
+        .hotspots
+        .iter()
+        .find(|h| h.parent_id == n && h.direction == HotspotDirection::Right);
+    let a_right = proj
+        .hotspots
+        .iter()
+        .find(|h| h.parent_id == a && h.direction == HotspotDirection::Right);
+    assert!(n_right.is_none());
+    assert!(a_right.is_some());
 }
 
 #[test]

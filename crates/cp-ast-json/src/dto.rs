@@ -324,6 +324,9 @@ pub enum FillContentDto {
         element_type: String,
         length: LengthSpecDto,
     },
+    Repeat {
+        count: LengthSpecDto,
+    },
     Grid {
         name: String,
         rows: LengthSpecDto,
@@ -396,10 +399,18 @@ pub struct SumBoundDefDto {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FullProjectionDto {
     pub nodes: Vec<ProjectedNodeDto>,
+    pub structure_lines: Vec<StructureLineDto>,
     pub hotspots: Vec<HotspotDto>,
     pub constraints: ProjectedConstraintsDto,
     pub available_vars: Vec<ExprCandidateDto>,
     pub completeness: CompletenessSummaryDto,
+}
+
+/// A display row in the Structure pane.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StructureLineDto {
+    pub depth: usize,
+    pub nodes: Vec<ProjectedNodeDto>,
 }
 
 /// A projected node for UI display.

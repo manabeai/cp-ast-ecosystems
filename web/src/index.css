@@ -167,9 +167,14 @@ body {
 
 .structure-empty { padding: 1rem; text-align: center; }
 
-.structure-node {
+.structure-line {
   display: flex; align-items: center; gap: 0.5rem;
   padding: 0.25rem 0.5rem; min-height: 1.5rem;
+}
+
+.structure-node {
+  display: flex; align-items: center; gap: 0.5rem;
+  min-height: 1.5rem;
 }
 
 .node-label {
@@ -294,6 +299,33 @@ body {
   font-weight: 600; align-self: flex-end; transition: background 0.15s;
 }
 .popup-confirm:hover { background: var(--accent-hover); }
+.popup-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+}
+
+.length-field {
+  display: flex; flex-direction: column; gap: 0.35rem;
+  flex: 1; min-width: 0;
+}
+.length-var-options {
+  display: flex; gap: 0.3rem; flex-wrap: wrap;
+}
+.length-var-option {
+  font-size: 0.75rem; padding: 0.2rem 0.45rem;
+  border: 1px solid var(--accent); border-radius: 3px;
+  background: transparent; color: var(--accent);
+  cursor: pointer;
+}
+.length-var-option:hover,
+.length-var-option.active {
+  background: var(--accent); color: var(--bg-primary);
+}
+.length-expression-input {
+  font-family: var(--font-mono);
+}
 
 /* ── Expression Builder ─────────────────────────────────────────── */
 

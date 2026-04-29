@@ -2,12 +2,12 @@
 
 use cp_ast_core::projection::types::{
     CompletedConstraint, CompletenessSummary, DraftConstraint, ExprCandidate, FullProjection,
-    Hotspot, HotspotDirection, ProjectedConstraints, ProjectedNode,
+    Hotspot, HotspotDirection, ProjectedConstraints, ProjectedNode, StructureLine,
 };
 
 use crate::dto::{
     CompletedConstraintDto, CompletenessSummaryDto, DraftConstraintDto, ExprCandidateDto,
-    FullProjectionDto, HotspotDto, ProjectedConstraintsDto, ProjectedNodeDto,
+    FullProjectionDto, HotspotDto, ProjectedConstraintsDto, ProjectedNodeDto, StructureLineDto,
 };
 use crate::error::ConversionError;
 
@@ -25,6 +25,11 @@ pub fn serialize_projection(proj: &FullProjection) -> Result<String, ConversionE
 pub fn projection_to_dto(proj: &FullProjection) -> FullProjectionDto {
     FullProjectionDto {
         nodes: proj.nodes.iter().map(projected_node_to_dto).collect(),
+        structure_lines: proj
+            .structure_lines
+            .iter()
+            .map(structure_line_to_dto)
+            .collect(),
         hotspots: proj.hotspots.iter().map(hotspot_to_dto).collect(),
         constraints: projected_constraints_to_dto(&proj.constraints),
         available_vars: proj
@@ -33,6 +38,13 @@ pub fn projection_to_dto(proj: &FullProjection) -> FullProjectionDto {
             .map(expr_candidate_to_dto)
             .collect(),
         completeness: completeness_to_dto(&proj.completeness),
+    }
+}
+
+fn structure_line_to_dto(line: &StructureLine) -> StructureLineDto {
+    StructureLineDto {
+        depth: line.depth,
+        nodes: line.nodes.iter().map(projected_node_to_dto).collect(),
     }
 }
 
