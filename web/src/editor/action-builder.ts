@@ -222,6 +222,18 @@ export function buildAddConstraintCharSet(targetId: string, spec: string): strin
   });
 }
 
+export function buildAddConstraintStringLength(
+  targetId: string,
+  min: string,
+  max: string,
+): string {
+  return JSON.stringify({
+    action: 'AddConstraint',
+    target: targetId,
+    constraint: { kind: 'StringLength', min, max },
+  });
+}
+
 export function buildRemoveConstraint(constraintId: string): string {
   return JSON.stringify({
     action: 'RemoveConstraint',

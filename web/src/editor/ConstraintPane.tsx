@@ -26,6 +26,7 @@ import {
 } from './popup-state';
 import {
   buildAddConstraintRange,
+  buildAddConstraintStringLength,
   buildAddConstraintProperty,
   buildAddConstraintSumBound,
   buildAddConstraintCharSet,
@@ -45,7 +46,9 @@ export function ConstraintPane() {
 
   const handleRangeConfirm = (lower: string, upper: string) => {
     if (editState.step === 'editing') {
-      const actionJson = buildAddConstraintRange(editState.targetId, lower, upper);
+      const actionJson = editState.template === 'StringLength'
+        ? buildAddConstraintStringLength(editState.targetId, lower, upper)
+        : buildAddConstraintRange(editState.targetId, lower, upper);
       dispatchAction(actionJson);
       closeConstraintEditor();
     }
@@ -122,43 +125,46 @@ export function ConstraintPane() {
           <PropertyOptions onSelect={handlePropertySelect} />
         )}
 
-        {/* Draft constraints */}
-        {proj.constraints.drafts.map(draft => (
+        {/* Constraint rows keep projection order, regardless of draft/completed status. */}
+        {proj.constraints.items.map(item => (
           <div
-            key={`draft-${draft.index}`}
-            class={`constraint-item draft ${editState.step === 'editing' && editState.targetId === draft.target_id ? 'active' : ''}`}
-            data-testid={`draft-constraint-${draft.index}`}
+            key={`constraint-item-${item.index}`}
+            class={`constraint-item ${item.status} ${editState.step !== 'closed' && editState.step !== 'sumbound' && editState.targetId === item.target_id ? 'active' : ''}`}
+            data-testid={`constraint-item-${item.index}`}
+            data-constraint-status={item.status}
             onClick={() => {
+              if (item.status !== 'draft' || !item.template) return;
               showPropertyOptions.value = false;
-              openConstraintEditor(draft.target_id, draft.target_name, draft.template);
+              openConstraintEditor(item.target_id, item.target_name, item.template);
             }}
           >
-            <span class="constraint-icon">○</span>
-            <span class="constraint-display">{draft.display}</span>
-          </div>
-        ))}
-
-        {/* Completed constraints */}
-        {proj.constraints.completed.map(comp => (
-          <div
-            key={`completed-${comp.index}`}
-            class="constraint-item completed"
-            data-testid={`completed-constraint-${comp.index}`}
-          >
-            <span class="constraint-icon">●</span>
-            <span class="constraint-display">{comp.display}</span>
-            <button
-              class="constraint-delete-btn"
-              data-testid={`delete-constraint-${comp.index}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                const actionJson = buildRemoveConstraint(comp.constraint_id);
-                dispatchAction(actionJson);
-              }}
-              title="Delete constraint"
+            <span class="constraint-icon">{item.status === 'draft' ? '○' : '●'}</span>
+            <span
+              class="constraint-display"
+              data-testid={
+                item.status === 'draft' && item.draft_index !== undefined
+                  ? `draft-constraint-${item.draft_index}`
+                  : item.status === 'completed' && item.completed_index !== undefined
+                    ? `completed-constraint-${item.completed_index}`
+                    : undefined
+              }
             >
-              ×
-            </button>
+              {item.display}
+            </span>
+            {item.status === 'completed' && item.constraint_id && (
+              <button
+                class="constraint-delete-btn"
+                data-testid={`delete-constraint-${item.completed_index ?? item.index}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const actionJson = buildRemoveConstraint(item.constraint_id!);
+                  dispatchAction(actionJson);
+                }}
+                title="Delete constraint"
+              >
+                ×
+              </button>
+            )}
           </div>
         ))}
 
@@ -262,6 +268,20 @@ function CharSetEditor({ onConfirm }: { onConfirm: () => void }) {
           onClick={() => { charSetSelection.value = 'Digit'; }}
         >
           0-9 (digit)
+        </button>
+        <button
+          class={`charset-option ${selected === 'Alpha' ? 'active' : ''}`}
+          data-testid="charset-option-alpha"
+          onClick={() => { charSetSelection.value = 'Alpha'; }}
+        >
+          a-zA-Z (letters)
+        </button>
+        <button
+          class={`charset-option ${selected === 'AlphaNumeric' ? 'active' : ''}`}
+          data-testid="charset-option-alphanumeric"
+          onClick={() => { charSetSelection.value = 'AlphaNumeric'; }}
+        >
+          a-zA-Z0-9
         </button>
         <button
           class={`charset-option ${selected === 'Custom' ? 'active' : ''}`}

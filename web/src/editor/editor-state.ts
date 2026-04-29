@@ -51,8 +51,21 @@ export interface CompletedConstraint {
 }
 
 export interface ProjectedConstraints {
+  items: ConstraintItem[];
   drafts: DraftConstraint[];
   completed: CompletedConstraint[];
+}
+
+export interface ConstraintItem {
+  index: number;
+  status: 'draft' | 'completed';
+  target_id: string;
+  target_name: string;
+  display: string;
+  template?: string;
+  constraint_id?: string;
+  draft_index?: number;
+  completed_index?: number;
 }
 
 export interface ExprCandidate {
@@ -96,7 +109,7 @@ const emptyProjection: FullProjection = {
   nodes: [],
   structure_lines: [],
   hotspots: [],
-  constraints: { drafts: [], completed: [] },
+  constraints: { items: [], drafts: [], completed: [] },
   available_vars: [],
   completeness: { total_holes: 0, filled_slots: 0, unsatisfied_constraints: 0, is_complete: false },
 };

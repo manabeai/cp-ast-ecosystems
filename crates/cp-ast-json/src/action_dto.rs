@@ -347,6 +347,10 @@ fn constraint_def_to_dto(cd: &ConstraintDef) -> ConstraintDefDto {
             upper: upper.clone(),
         },
         ConstraintDefKind::CharSet { spec } => ConstraintDefDto::CharSet { spec: spec.clone() },
+        ConstraintDefKind::StringLength { min, max } => ConstraintDefDto::StringLength {
+            min: min.clone(),
+            max: max.clone(),
+        },
         ConstraintDefKind::Guarantee { description } => ConstraintDefDto::Guarantee {
             description: description.clone(),
         },
@@ -376,6 +380,10 @@ fn dto_to_constraint_def(dto: &ConstraintDefDto) -> Result<ConstraintDef, Conver
             upper: upper.clone(),
         },
         ConstraintDefDto::CharSet { spec } => ConstraintDefKind::CharSet { spec: spec.clone() },
+        ConstraintDefDto::StringLength { min, max } => ConstraintDefKind::StringLength {
+            min: min.clone(),
+            max: max.clone(),
+        },
         ConstraintDefDto::Guarantee { description } => ConstraintDefKind::Guarantee {
             description: description.clone(),
         },

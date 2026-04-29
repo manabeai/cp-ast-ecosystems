@@ -337,6 +337,22 @@ fn add_constraint_guarantee_roundtrip() {
 }
 
 #[test]
+fn add_constraint_string_length_roundtrip() {
+    let action = Action::AddConstraint {
+        target: NodeId::from_raw(0),
+        constraint: ConstraintDef {
+            kind: ConstraintDefKind::StringLength {
+                min: "1".to_owned(),
+                max: "N".to_owned(),
+            },
+        },
+    };
+    let json = serialize_action(&action).unwrap();
+    let restored = deserialize_action(&json).unwrap();
+    assert_eq!(action, restored);
+}
+
+#[test]
 fn projection_serializes_to_json() {
     use cp_ast_core::operation::engine::AstEngine;
     use cp_ast_core::projection::project_full;

@@ -1,13 +1,15 @@
 //! One-way conversion from `FullProjection` → `FullProjectionDto`.
 
 use cp_ast_core::projection::types::{
-    CompletedConstraint, CompletenessSummary, DraftConstraint, ExprCandidate, FullProjection,
-    Hotspot, HotspotDirection, ProjectedConstraints, ProjectedNode, StructureLine,
+    CompletedConstraint, CompletenessSummary, ConstraintItem, ConstraintItemStatus,
+    DraftConstraint, ExprCandidate, FullProjection, Hotspot, HotspotDirection,
+    ProjectedConstraints, ProjectedNode, StructureLine,
 };
 
 use crate::dto::{
-    CompletedConstraintDto, CompletenessSummaryDto, DraftConstraintDto, ExprCandidateDto,
-    FullProjectionDto, HotspotDto, ProjectedConstraintsDto, ProjectedNodeDto, StructureLineDto,
+    CompletedConstraintDto, CompletenessSummaryDto, ConstraintItemDto, DraftConstraintDto,
+    ExprCandidateDto, FullProjectionDto, HotspotDto, ProjectedConstraintsDto, ProjectedNodeDto,
+    StructureLineDto,
 };
 use crate::error::ConversionError;
 
@@ -76,12 +78,31 @@ fn hotspot_direction_str(d: HotspotDirection) -> String {
 
 fn projected_constraints_to_dto(pc: &ProjectedConstraints) -> ProjectedConstraintsDto {
     ProjectedConstraintsDto {
+        items: pc.items.iter().map(constraint_item_to_dto).collect(),
         drafts: pc.drafts.iter().map(draft_constraint_to_dto).collect(),
         completed: pc
             .completed
             .iter()
             .map(completed_constraint_to_dto)
             .collect(),
+    }
+}
+
+fn constraint_item_to_dto(item: &ConstraintItem) -> ConstraintItemDto {
+    ConstraintItemDto {
+        index: item.index,
+        status: match item.status {
+            ConstraintItemStatus::Draft => "draft",
+            ConstraintItemStatus::Completed => "completed",
+        }
+        .to_owned(),
+        target_id: item.target_id.value().to_string(),
+        target_name: item.target_name.clone(),
+        display: item.display.clone(),
+        template: item.template.clone(),
+        constraint_id: item.constraint_id.clone(),
+        draft_index: item.draft_index,
+        completed_index: item.completed_index,
     }
 }
 

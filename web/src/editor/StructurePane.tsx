@@ -3,9 +3,19 @@
  */
 import { projection, dispatchAction } from './editor-state';
 import type { Hotspot, ProjectedNode, StructureLine } from './editor-state';
-import { openPopup, popupState, nodeEditState, nodeEditName, openNodeEdit, closeNodeEdit } from './popup-state';
+import {
+  openPopup,
+  popupState,
+  nodeEditState,
+  nodeEditName,
+  nodeEditKind,
+  nodeEditType,
+  nodeEditLength,
+  openNodeEdit,
+  closeNodeEdit,
+} from './popup-state';
 import { NodePopup } from './NodePopup';
-import { buildReplaceNode } from './action-builder';
+import { buildArrayFill, buildReplaceNode, buildScalarFill } from './action-builder';
 import { structureFolded, toggleStructureFold } from './fold-state';
 
 type RenderItem =
@@ -174,41 +184,43 @@ function StructureNodeView({ node, hotspots }: { node: ProjectedNode; hotspots: 
   );
 }
 
-function NodeInlineEdit({ nodeId, currentLabel }: { nodeId: string; currentLabel: string }) {
+function NodeInlineEdit({ nodeId }: { nodeId: string; currentLabel: string }) {
+  const proj = projection.value;
   const name = nodeEditName.value;
+  const kind = nodeEditKind.value;
+  const length = nodeEditLength.value;
   
   const handleConfirm = () => {
-    if (name.trim()) {
-      // Parse the current label to determine type
-      // Scalar: just "N"
-      // Array: "A[N]" - extract length var
-      const arrayMatch = currentLabel.match(/^[A-Za-z_][A-Za-z0-9_]*\[([^\]]+)\]/);
-      
-      if (arrayMatch) {
-        // Array - keep same structure with new name
-        const lengthVar = arrayMatch[1];
-        const actionJson = buildReplaceNode(nodeId, {
-          kind: 'Array',
-          name: name.trim(),
-          element_type: 'Int',
-          length: { kind: 'Expr', expr: lengthVar },
-        });
-        dispatchAction(actionJson);
-      } else {
-        // Scalar
-        const actionJson = buildReplaceNode(nodeId, {
-          kind: 'Scalar',
-          name: name.trim(),
-          typ: 'Int',
-        });
-        dispatchAction(actionJson);
-      }
+    if (name.trim() && (kind === 'scalar' || length.trim())) {
+      const fill = kind === 'array'
+        ? buildArrayFill(name.trim(), nodeEditType.value, length.trim(), proj.available_vars)
+        : buildScalarFill(name.trim(), nodeEditType.value);
+      dispatchAction(buildReplaceNode(nodeId, fill));
     }
     closeNodeEdit();
   };
   
   return (
-    <span class="node-inline-edit">
+    <span class="node-inline-edit node-edit-panel">
+      <select
+        class="node-edit-kind-select"
+        data-testid="node-edit-kind-select"
+        value={kind}
+        onChange={(e) => { nodeEditKind.value = (e.target as HTMLSelectElement).value as 'scalar' | 'array'; }}
+      >
+        <option value="scalar">Scalar</option>
+        <option value="array">Array</option>
+      </select>
+      <select
+        class="node-edit-type-select"
+        data-testid="node-edit-type-select"
+        value={nodeEditType.value}
+        onChange={(e) => { nodeEditType.value = (e.target as HTMLSelectElement).value; }}
+      >
+        <option value="number">Number</option>
+        <option value="char">Char</option>
+        <option value="string">String</option>
+      </select>
       <input
         type="text"
         class="node-edit-input"
@@ -219,9 +231,40 @@ function NodeInlineEdit({ nodeId, currentLabel }: { nodeId: string; currentLabel
           if (e.key === 'Enter') handleConfirm();
           if (e.key === 'Escape') closeNodeEdit();
         }}
-        onBlur={handleConfirm}
         autoFocus
       />
+      {kind === 'array' && (
+        <span class="node-edit-length">
+          {proj.available_vars.map(v => (
+            <button
+              key={v.node_id}
+              class={`length-var-option ${length === v.name ? 'active' : ''}`}
+              data-testid={`node-edit-length-var-option-${v.name}`}
+              onClick={() => { nodeEditLength.value = v.name; }}
+              type="button"
+            >
+              {v.name}
+            </button>
+          ))}
+          <input
+            class="length-expression-input"
+            data-testid="node-edit-length-input"
+            value={length}
+            placeholder="length"
+            onInput={(e) => { nodeEditLength.value = (e.target as HTMLInputElement).value; }}
+          />
+        </span>
+      )}
+      <button
+        class="node-edit-confirm"
+        data-testid="node-edit-confirm"
+        disabled={!name.trim() || (kind === 'array' && !length.trim())}
+        onClick={handleConfirm}
+        type="button"
+      >
+        Confirm
+      </button>
+      <button class="node-edit-cancel" onClick={closeNodeEdit} type="button">Cancel</button>
     </span>
   );
 }

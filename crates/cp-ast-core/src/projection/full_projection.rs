@@ -8,8 +8,8 @@ use std::collections::HashSet;
 use super::api::ProjectionAPI;
 use super::projection_impl::make_label;
 use super::types::{
-    CompletedConstraint, DraftConstraint, ExprCandidate, FullProjection, Hotspot, HotspotDirection,
-    ProjectedConstraints, ProjectedNode, StructureLine,
+    CompletedConstraint, ConstraintItem, ConstraintItemStatus, DraftConstraint, ExprCandidate,
+    FullProjection, Hotspot, HotspotDirection, ProjectedConstraints, ProjectedNode, StructureLine,
 };
 use crate::constraint::{Constraint, ExpectedType, Expression};
 use crate::operation::AstEngine;
@@ -223,10 +223,27 @@ fn is_scalar_or_array(kind: &NodeKind) -> bool {
 // Constraint projection
 // ---------------------------------------------------------------------------
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SlotKind {
+    Range,
+    CharSet,
+    StringLength,
+    Other,
+}
+
+#[derive(Debug, Clone)]
+struct CompletedRow {
+    node_id: NodeId,
+    node_name: String,
+    kind: SlotKind,
+    constraint: CompletedConstraint,
+}
+
+#[allow(clippy::too_many_lines)]
 fn generate_constraints(engine: &AstEngine) -> ProjectedConstraints {
     let mut completed = Vec::new();
-    let mut nodes_with_range: HashSet<NodeId> = HashSet::new();
-    let mut nodes_with_charset: HashSet<NodeId> = HashSet::new();
+    let mut completed_rows = Vec::new();
+    let mut used_completed = HashSet::new();
 
     for (cid, constraint) in engine.constraints.iter() {
         // TypeDecl constraints are internal bookkeeping — don't expose to the UI.
@@ -236,99 +253,214 @@ fn generate_constraints(engine: &AstEngine) -> ProjectedConstraints {
             continue;
         }
 
-        completed.push(CompletedConstraint {
+        let completed_constraint = CompletedConstraint {
             index: completed.len(),
             constraint_id: format!("c{}", cid.value()),
             display: format_constraint_display(constraint, engine),
-        });
+        };
 
-        match constraint {
-            Constraint::Range { target, .. } => {
-                if let Some(nid) = ref_to_node_id(target) {
-                    nodes_with_range.insert(nid);
-                }
-            }
-            Constraint::CharSet { target, .. } => {
-                if let Some(nid) = ref_to_node_id(target) {
-                    nodes_with_charset.insert(nid);
-                }
-            }
-            _ => {}
+        if let Some(node_id) = constraint_target_node_id(constraint) {
+            let kind = constraint_slot_kind(constraint);
+            completed_rows.push(CompletedRow {
+                node_id,
+                node_name: ref_to_name(&Reference::VariableRef(node_id), engine),
+                kind,
+                constraint: completed_constraint.clone(),
+            });
         }
+        completed.push(completed_constraint);
     }
 
     let mut drafts = Vec::new();
+    let mut items = Vec::new();
     for node in engine.structure.iter() {
         let node_id = node.id();
-        match node.kind() {
-            NodeKind::Scalar { name }
-                if !nodes_with_range.contains(&node_id) && is_int_typed(engine, node_id) =>
-            {
-                drafts.push(DraftConstraint {
-                    index: drafts.len(),
-                    target_id: node_id,
-                    target_name: name.as_str().to_owned(),
-                    display: format!("? ≤ {} ≤ ?", name.as_str()),
-                    template: "Range".to_owned(),
-                });
+        match (node.kind(), expected_type(engine, node_id)) {
+            (
+                NodeKind::Scalar { name } | NodeKind::Array { name, .. },
+                Some(ExpectedType::Int) | None,
+            ) => {
+                push_constraint_slot(
+                    &completed_rows,
+                    &mut used_completed,
+                    &mut drafts,
+                    &mut items,
+                    node_id,
+                    name.as_str(),
+                    SlotKind::Range,
+                    "? ≤ {name} ≤ ?",
+                    "Range",
+                );
             }
-            NodeKind::Array { name, .. }
-                if !nodes_with_range.contains(&node_id) && is_int_typed(engine, node_id) =>
-            {
-                drafts.push(DraftConstraint {
-                    index: drafts.len(),
-                    target_id: node_id,
-                    target_name: name.as_str().to_owned(),
-                    display: format!("? ≤ {}_i ≤ ?", name.as_str()),
-                    template: "Range".to_owned(),
-                });
+            (
+                NodeKind::Scalar { name }
+                | NodeKind::Array { name, .. }
+                | NodeKind::Matrix { name, .. },
+                Some(ExpectedType::Char),
+            ) => {
+                push_constraint_slot(
+                    &completed_rows,
+                    &mut used_completed,
+                    &mut drafts,
+                    &mut items,
+                    node_id,
+                    name.as_str(),
+                    SlotKind::CharSet,
+                    "charset({name}) = ?",
+                    "CharSet",
+                );
             }
-            NodeKind::Matrix { name, .. }
-                if !nodes_with_charset.contains(&node_id)
-                    && is_str_or_char_typed(engine, node_id) =>
-            {
-                drafts.push(DraftConstraint {
-                    index: drafts.len(),
-                    target_id: node_id,
-                    target_name: name.as_str().to_owned(),
-                    display: format!("charset({}) = ?", name.as_str()),
-                    template: "CharSet".to_owned(),
-                });
+            (
+                NodeKind::Scalar { name }
+                | NodeKind::Array { name, .. }
+                | NodeKind::Matrix { name, .. },
+                Some(ExpectedType::Str),
+            ) => {
+                push_constraint_slot(
+                    &completed_rows,
+                    &mut used_completed,
+                    &mut drafts,
+                    &mut items,
+                    node_id,
+                    name.as_str(),
+                    SlotKind::CharSet,
+                    "charset({name}) = ?",
+                    "CharSet",
+                );
+                if matches!(node.kind(), NodeKind::Scalar { .. }) {
+                    push_constraint_slot(
+                        &completed_rows,
+                        &mut used_completed,
+                        &mut drafts,
+                        &mut items,
+                        node_id,
+                        name.as_str(),
+                        SlotKind::StringLength,
+                        "? ≤ len({name}) ≤ ?",
+                        "StringLength",
+                    );
+                }
             }
             _ => {}
         }
     }
 
-    ProjectedConstraints { drafts, completed }
+    for row in &completed_rows {
+        if used_completed.contains(&row.constraint.index) {
+            continue;
+        }
+        items.push(ConstraintItem {
+            index: items.len(),
+            status: ConstraintItemStatus::Completed,
+            target_id: row.node_id,
+            target_name: row.node_name.clone(),
+            display: row.constraint.display.clone(),
+            template: None,
+            constraint_id: Some(row.constraint.constraint_id.clone()),
+            draft_index: None,
+            completed_index: Some(row.constraint.index),
+        });
+    }
+
+    ProjectedConstraints {
+        items,
+        drafts,
+        completed,
+    }
 }
 
-/// Check if a node is int-typed.
-///
-/// Returns `true` when a `TypeDecl` with `Int` exists, **or** when no `TypeDecl`
-/// exists at all (pragmatic default for competitive programming scalars added
-/// via `AddSlotElement` which does not auto-create `TypeDecl`).
-fn is_int_typed(engine: &AstEngine, node_id: NodeId) -> bool {
-    let ids = engine.constraints.for_node(node_id);
-    let mut has_type_decl = false;
-    for cid in &ids {
-        if let Some(Constraint::TypeDecl { expected, .. }) = engine.constraints.get(*cid) {
-            has_type_decl = true;
-            if *expected == ExpectedType::Int {
-                return true;
-            }
-        }
+#[allow(clippy::too_many_arguments)]
+fn push_constraint_slot(
+    completed_rows: &[CompletedRow],
+    used_completed: &mut HashSet<usize>,
+    drafts: &mut Vec<DraftConstraint>,
+    items: &mut Vec<ConstraintItem>,
+    node_id: NodeId,
+    node_name: &str,
+    kind: SlotKind,
+    draft_display_template: &str,
+    template: &str,
+) {
+    if let Some(row) = completed_rows
+        .iter()
+        .find(|row| row.node_id == node_id && row.kind == kind)
+    {
+        let completed = &row.constraint;
+        used_completed.insert(completed.index);
+        items.push(ConstraintItem {
+            index: items.len(),
+            status: ConstraintItemStatus::Completed,
+            target_id: node_id,
+            target_name: node_name.to_owned(),
+            display: completed.display.clone(),
+            template: None,
+            constraint_id: Some(completed.constraint_id.clone()),
+            draft_index: None,
+            completed_index: Some(completed.index),
+        });
+        return;
     }
-    !has_type_decl
+
+    let draft = DraftConstraint {
+        index: drafts.len(),
+        target_id: node_id,
+        target_name: node_name.to_owned(),
+        display: draft_display_template.replace("{name}", node_name),
+        template: template.to_owned(),
+    };
+    drafts.push(draft.clone());
+    items.push(ConstraintItem {
+        index: items.len(),
+        status: ConstraintItemStatus::Draft,
+        target_id: node_id,
+        target_name: node_name.to_owned(),
+        display: draft.display,
+        template: Some(draft.template),
+        constraint_id: None,
+        draft_index: Some(draft.index),
+        completed_index: None,
+    });
 }
 
-fn is_str_or_char_typed(engine: &AstEngine, node_id: NodeId) -> bool {
+fn expected_type(engine: &AstEngine, node_id: NodeId) -> Option<ExpectedType> {
     let ids = engine.constraints.for_node(node_id);
     for cid in &ids {
         if let Some(Constraint::TypeDecl { expected, .. }) = engine.constraints.get(*cid) {
-            return matches!(expected, ExpectedType::Str | ExpectedType::Char);
+            return Some(expected.clone());
         }
     }
-    false
+    None
+}
+
+fn constraint_target_node_id(constraint: &Constraint) -> Option<NodeId> {
+    match constraint {
+        Constraint::Range { target, .. }
+        | Constraint::TypeDecl { target, .. }
+        | Constraint::LengthRelation { target, .. }
+        | Constraint::Distinct {
+            elements: target, ..
+        }
+        | Constraint::Property { target, .. }
+        | Constraint::SumBound {
+            variable: target, ..
+        }
+        | Constraint::Sorted {
+            elements: target, ..
+        }
+        | Constraint::CharSet { target, .. }
+        | Constraint::StringLength { target, .. }
+        | Constraint::RenderHint { target, .. } => ref_to_node_id(target),
+        Constraint::Relation { .. } | Constraint::Guarantee { .. } => None,
+    }
+}
+
+fn constraint_slot_kind(constraint: &Constraint) -> SlotKind {
+    match constraint {
+        Constraint::Range { .. } => SlotKind::Range,
+        Constraint::CharSet { .. } => SlotKind::CharSet,
+        Constraint::StringLength { .. } => SlotKind::StringLength,
+        _ => SlotKind::Other,
+    }
 }
 
 // ---------------------------------------------------------------------------

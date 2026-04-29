@@ -186,6 +186,14 @@ body {
 .node-editable:hover { color: var(--accent); }
 
 .node-inline-edit { display: inline-flex; align-items: center; }
+.node-edit-panel {
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-surface);
+}
 .node-edit-input {
   font-family: var(--font-mono); font-size: 0.85rem;
   padding: 0.1rem 0.3rem;
@@ -194,6 +202,17 @@ body {
   width: 6rem;
 }
 .node-edit-input:focus { outline: none; }
+.node-edit-kind-select,
+.node-edit-type-select,
+.node-edit-confirm,
+.node-edit-cancel {
+  font-size: 0.75rem;
+}
+.node-edit-length {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
 
 .hotspot-btn {
   font-size: 0.7rem; padding: 0.1rem 0.4rem;

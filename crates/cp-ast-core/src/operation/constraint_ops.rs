@@ -107,6 +107,11 @@ fn convert_def_to_constraint(target: NodeId, kind: &ConstraintDefKind) -> Constr
             target: target_ref,
             charset: parse_charset_spec(spec),
         },
+        ConstraintDefKind::StringLength { min, max } => Constraint::StringLength {
+            target: target_ref,
+            min: parse_expression(min),
+            max: parse_expression(max),
+        },
         ConstraintDefKind::Guarantee { description } => Constraint::Guarantee {
             description: description.clone(),
             predicate: None,
@@ -138,6 +143,10 @@ fn resolve_constraint_references(structure: &StructureAst, constraint: &mut Cons
         Constraint::Relation { lhs, rhs, .. } => {
             resolve_expression_references(structure, lhs);
             resolve_expression_references(structure, rhs);
+        }
+        Constraint::StringLength { min, max, .. } => {
+            resolve_expression_references(structure, min);
+            resolve_expression_references(structure, max);
         }
         _ => {}
     }

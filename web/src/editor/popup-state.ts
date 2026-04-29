@@ -23,12 +23,19 @@ export type NodeEditPhase =
 
 export const nodeEditState = signal<NodeEditPhase>({ step: 'closed' });
 export const nodeEditName = signal('');
+export const nodeEditKind = signal<'scalar' | 'array'>('scalar');
+export const nodeEditType = signal('number');
+export const nodeEditLength = signal('');
 
 export function openNodeEdit(nodeId: string, currentLabel: string): void {
   // Extract name from label (e.g., "A[N]" -> "A", "N" -> "N")
   const name = currentLabel.match(/^([A-Za-z_][A-Za-z0-9_]*)/)?.[1] ?? currentLabel;
+  const length = currentLabel.match(/^[A-Za-z_][A-Za-z0-9_]*\[([^\]]+)\]/)?.[1] ?? '';
   nodeEditState.value = { step: 'editing', nodeId, currentLabel };
   nodeEditName.value = name;
+  nodeEditKind.value = length ? 'array' : 'scalar';
+  nodeEditType.value = 'number';
+  nodeEditLength.value = length;
 }
 
 export function closeNodeEdit(): void {

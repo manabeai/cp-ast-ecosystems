@@ -383,6 +383,7 @@ pub enum ConstraintDefDto {
     Property { tag: String },
     SumBound { over_var: String, upper: String },
     CharSet { spec: String },
+    StringLength { min: String, max: String },
     Guarantee { description: String },
 }
 
@@ -433,8 +434,22 @@ pub struct HotspotDto {
 /// Projected constraints split into draft and completed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectedConstraintsDto {
+    pub items: Vec<ConstraintItemDto>,
     pub drafts: Vec<DraftConstraintDto>,
     pub completed: Vec<CompletedConstraintDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConstraintItemDto {
+    pub index: usize,
+    pub status: String,
+    pub target_id: String,
+    pub target_name: String,
+    pub display: String,
+    pub template: Option<String>,
+    pub constraint_id: Option<String>,
+    pub draft_index: Option<usize>,
+    pub completed_index: Option<usize>,
 }
 
 /// An unfilled constraint generated on-the-fly by projection.

@@ -370,7 +370,7 @@ fn replace_node_success() {
 }
 
 #[test]
-fn replace_node_with_dependents_fails() {
+fn replace_node_keeps_compatible_range() {
     let mut engine = AstEngine::new();
     let scalar_id = engine.structure.add_node(NodeKind::Scalar {
         name: Ident::new("N"),
@@ -388,17 +388,57 @@ fn replace_node_with_dependents_fails() {
         })
         .unwrap();
 
-    let result = engine.apply(&Action::ReplaceNode {
-        target: scalar_id,
-        replacement: FillContent::Scalar {
-            name: "M".to_owned(),
-            typ: VarType::Int,
-        },
-    });
+    let result = engine
+        .apply(&Action::ReplaceNode {
+            target: scalar_id,
+            replacement: FillContent::Scalar {
+                name: "M".to_owned(),
+                typ: VarType::Int,
+            },
+        })
+        .unwrap();
 
+    assert!(result.affected_constraints.is_empty());
+    assert_eq!(engine.constraints.for_node(scalar_id).len(), 2);
+}
+
+#[test]
+fn replace_node_removes_incompatible_range() {
+    let mut engine = AstEngine::new();
+    let scalar_id = engine.structure.add_node(NodeKind::Scalar {
+        name: Ident::new("N"),
+    });
+    engine
+        .apply(&Action::AddConstraint {
+            target: scalar_id,
+            constraint: ConstraintDef {
+                kind: ConstraintDefKind::Range {
+                    lower: "1".to_owned(),
+                    upper: "100".to_owned(),
+                },
+            },
+        })
+        .unwrap();
+
+    let result = engine
+        .apply(&Action::ReplaceNode {
+            target: scalar_id,
+            replacement: FillContent::Scalar {
+                name: "c".to_owned(),
+                typ: VarType::Char,
+            },
+        })
+        .unwrap();
+
+    assert_eq!(result.affected_constraints.len(), 1);
+    let constraints = engine.constraints.for_node(scalar_id);
+    assert_eq!(constraints.len(), 1);
     assert!(matches!(
-        result,
-        Err(OperationError::InvalidOperation { .. })
+        engine.constraints.get(constraints[0]),
+        Some(Constraint::TypeDecl {
+            expected: ExpectedType::Char,
+            ..
+        })
     ));
 }
 

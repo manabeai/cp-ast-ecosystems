@@ -79,8 +79,31 @@ pub struct StructureLine {
 /// Projected constraints split into draft and completed.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ProjectedConstraints {
+    pub items: Vec<ConstraintItem>,
     pub drafts: Vec<DraftConstraint>,
     pub completed: Vec<CompletedConstraint>,
+}
+
+/// A stable display row for the Constraint pane.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ConstraintItem {
+    pub index: usize,
+    pub status: ConstraintItemStatus,
+    pub target_id: NodeId,
+    pub target_name: String,
+    pub display: String,
+    pub template: Option<String>,
+    pub constraint_id: Option<String>,
+    pub draft_index: Option<usize>,
+    pub completed_index: Option<usize>,
+}
+
+/// Whether a projected constraint row is still draft or already completed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConstraintItemStatus {
+    Draft,
+    Completed,
 }
 
 /// An insertion point in the UI.

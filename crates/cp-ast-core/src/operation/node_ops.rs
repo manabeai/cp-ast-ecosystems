@@ -3,8 +3,23 @@ use super::error::OperationError;
 use super::fill_hole::var_type_to_expected_from_fill;
 use super::result::ApplyResult;
 use super::types::FillContent;
-use crate::constraint::Constraint;
+use crate::constraint::{Constraint, ExpectedType};
 use crate::structure::{Literal, NodeId, NodeKind, Reference};
+
+fn constraint_is_compatible_with_replacement(
+    constraint: &Constraint,
+    expected_type: Option<&ExpectedType>,
+) -> bool {
+    match constraint {
+        Constraint::TypeDecl { .. } => false,
+        Constraint::Range { .. } => matches!(expected_type, Some(ExpectedType::Int) | None),
+        Constraint::CharSet { .. } => {
+            matches!(expected_type, Some(ExpectedType::Char | ExpectedType::Str))
+        }
+        Constraint::StringLength { .. } => matches!(expected_type, Some(ExpectedType::Str)),
+        _ => true,
+    }
+}
 
 impl AstEngine {
     /// Replace an existing node with new content.
@@ -13,7 +28,7 @@ impl AstEngine {
     /// Returns `OperationError` if:
     /// - Target node doesn't exist
     /// - Target node is a Hole (use `FillHole` instead)
-    /// - Node has existing constraints (unsafe to replace)
+    /// - Constraints incompatible with the replacement are removed
     pub(crate) fn replace_node(
         &mut self,
         target: NodeId,
@@ -33,16 +48,18 @@ impl AstEngine {
             });
         }
 
-        // 3. Check for constraints referencing this node
+        // 3. Remove constraints that cannot survive the new node shape/type.
         let existing_constraints = self.constraints.for_node(target);
-        if !existing_constraints.is_empty() {
-            return Err(OperationError::InvalidOperation {
-                action: "ReplaceNode".to_owned(),
-                reason: format!(
-                    "Node has {} existing constraints; remove them first",
-                    existing_constraints.len()
-                ),
-            });
+        let expected_type = var_type_to_expected_from_fill(replacement);
+        let mut affected_constraints = Vec::new();
+        for cid in &existing_constraints {
+            let Some(constraint) = self.constraints.get(*cid) else {
+                continue;
+            };
+            if !constraint_is_compatible_with_replacement(constraint, expected_type.as_ref()) {
+                self.constraints.remove(*cid);
+                affected_constraints.push(*cid);
+            }
         }
 
         // 4. Expand replacement FillContent using existing helper
@@ -60,11 +77,23 @@ impl AstEngine {
             self.resolve_structure_references(child_id);
         }
 
+        let mut created_constraints = Vec::new();
+        if let Some(expected) = expected_type {
+            let cid = self.constraints.add(
+                Some(target),
+                Constraint::TypeDecl {
+                    target: Reference::VariableRef(target),
+                    expected,
+                },
+            );
+            created_constraints.push(cid);
+        }
+
         Ok(ApplyResult {
             created_nodes,
             removed_nodes: vec![],
-            created_constraints: vec![],
-            affected_constraints: vec![],
+            created_constraints,
+            affected_constraints,
         })
     }
 

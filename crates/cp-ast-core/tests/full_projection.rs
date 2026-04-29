@@ -40,6 +40,52 @@ fn scalar_generates_draft_range() {
 }
 
 #[test]
+fn char_scalar_generates_charset_draft() {
+    let mut engine = AstEngine::new();
+    let root = engine.structure.root();
+    engine
+        .apply(&Action::AddSlotElement {
+            parent: root,
+            slot_name: "children".to_owned(),
+            element: FillContent::Scalar {
+                name: "c".to_owned(),
+                typ: VarType::Char,
+            },
+        })
+        .unwrap();
+
+    let proj = cp_ast_core::projection::project_full(&engine);
+    assert_eq!(proj.constraints.items.len(), 1);
+    assert_eq!(proj.constraints.drafts[0].template, "CharSet");
+    assert!(proj.constraints.items[0].display.contains("charset(c)"));
+}
+
+#[test]
+fn string_scalar_generates_charset_and_length_drafts() {
+    let mut engine = AstEngine::new();
+    let root = engine.structure.root();
+    engine
+        .apply(&Action::AddSlotElement {
+            parent: root,
+            slot_name: "children".to_owned(),
+            element: FillContent::Scalar {
+                name: "S".to_owned(),
+                typ: VarType::Str,
+            },
+        })
+        .unwrap();
+
+    let proj = cp_ast_core::projection::project_full(&engine);
+    let templates: Vec<_> = proj
+        .constraints
+        .drafts
+        .iter()
+        .map(|draft| draft.template.as_str())
+        .collect();
+    assert_eq!(templates, vec!["CharSet", "StringLength"]);
+}
+
+#[test]
 fn scalar_has_right_hotspot() {
     let mut engine = AstEngine::new();
     let root = engine.structure.root();

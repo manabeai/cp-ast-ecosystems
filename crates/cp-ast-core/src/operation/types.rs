@@ -98,6 +98,8 @@ pub enum ConstraintDefKind {
     SumBound { over_var: String, upper: String },
     /// Character set constraint.
     CharSet { spec: String },
+    /// String length bounds.
+    StringLength { min: String, max: String },
     /// Human-readable guarantee.
     Guarantee { description: String },
 }

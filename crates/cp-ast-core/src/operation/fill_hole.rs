@@ -185,9 +185,11 @@ impl AstEngine {
 
 fn var_type_to_expected(fill: &FillContent) -> Option<ExpectedType> {
     match fill {
-        FillContent::Scalar { typ, .. } | FillContent::OutputSingleValue { typ, .. } => {
-            Some(var_type_to_expected_type(typ))
+        FillContent::Scalar { typ, .. }
+        | FillContent::Array {
+            element_type: typ, ..
         }
+        | FillContent::OutputSingleValue { typ, .. } => Some(var_type_to_expected_type(typ)),
         FillContent::OutputYesNo => Some(ExpectedType::Str),
         FillContent::WeightedEdgeList { weight_type, .. } => {
             Some(var_type_to_expected_type(weight_type))
