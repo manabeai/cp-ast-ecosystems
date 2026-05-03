@@ -31,7 +31,7 @@ export function App() {
   return (
     <div class="app">
       <header class="header">
-        <h1 class="header-title">🌳 AST Editor</h1>
+        <h1 class="header-title">Random Test Creator</h1>
         <nav class="header-nav">
           <a
             href="#/"

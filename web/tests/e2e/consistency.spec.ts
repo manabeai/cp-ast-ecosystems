@@ -9,6 +9,11 @@ test.describe('Web editor consistency', () => {
     await editor.goto();
   });
 
+  test('app title and header use the Random Test Creator name', async () => {
+    await expect(editor.page).toHaveTitle('Random Test Creator');
+    await expect(editor.page.getByRole('heading', { level: 1 })).toHaveText('Random Test Creator');
+  });
+
   test('draft constraints suppress sample until required bounds are filled', async () => {
     await editor.addScalar('N');
 

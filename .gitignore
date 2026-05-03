@@ -11,3 +11,6 @@ web/playwright-report/
 fix copy.md
 fix2.md
 fix.md
+
+test-results
+web/test-results
