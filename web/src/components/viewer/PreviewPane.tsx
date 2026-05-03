@@ -3,8 +3,9 @@ import {
   activePreviewTab,
   inputTexString,
   constraintsTexString,
-  sampleText,
+  samplePreview,
 } from '../../state';
+import { SamplePreviewBlock } from '../SamplePreviewBlock';
 import { renderInputTex, renderConstraintsTex } from '../../tex-renderer';
 
 function TexTab() {
@@ -36,7 +37,7 @@ function TexTab() {
 }
 
 function SampleTab() {
-  return <pre class="sample-output">{sampleText.value}</pre>;
+  return <SamplePreviewBlock preview={samplePreview.value} />;
 }
 
 export function PreviewPane() {

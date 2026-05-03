@@ -15,6 +15,7 @@ import {
   render_constraints_tex,
   generate_sample,
 } from '../wasm';
+import { buildSamplePreview, samplePreviewText } from '../sample-preview';
 
 // ── Types (mirrors FullProjectionDto from Rust) ────────────────────
 
@@ -179,10 +180,19 @@ export const constraintsTexString = computed(() => {
   return safeCall(() => render_constraints_tex(documentJson.value), '');
 });
 
+export const samplePreview = computed(() => {
+  const currentDocumentJson = documentJson.value;
+  return buildSamplePreview({
+    documentJson: currentDocumentJson,
+    seed: sampleSeed.value,
+    generateSample: generate_sample,
+    project: (json) => JSON.parse(project_full(json)),
+    draftConstraints: currentDocumentJson ? projection.value.constraints.drafts : undefined,
+  });
+});
+
 export const sampleText = computed(() => {
-  if (!documentJson.value) return '';
-  if (projection.value.constraints.items.some(item => item.status === 'draft')) return '';
-  return safeCall(() => generate_sample(documentJson.value, sampleSeed.value), '');
+  return samplePreviewText(samplePreview.value);
 });
 
 // ── Actions ────────────────────────────────────────────────────────

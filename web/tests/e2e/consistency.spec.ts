@@ -39,6 +39,7 @@ test.describe('Web editor consistency', () => {
 
     await expect(editor.getDraftConstraints()).toHaveCount(1);
     await expect(editor.getSampleOutput()).toBeEmpty();
+    await expect(editor.getSampleStatus()).toContainText('1 draft constraint is still incomplete');
 
     await editor.openDraft(0);
     await editor.fillBoundLiteral('lower', '2');
@@ -46,6 +47,7 @@ test.describe('Web editor consistency', () => {
     await editor.confirmConstraint();
 
     await expect(editor.getSampleOutput()).not.toBeEmpty();
+    await expect(editor.getSampleStatus()).toHaveCount(0);
   });
 
   test('length and count variable pickers only show Int scalar variables', async () => {
@@ -93,6 +95,7 @@ test.describe('Web editor consistency', () => {
     await editor.page.getByTestId('delete-constraint-0').click();
     await expect(editor.page.getByTestId('constraint-item-0')).toHaveAttribute('data-constraint-status', 'draft');
     await expect(editor.getSampleOutput()).toBeEmpty();
+    await expect(editor.getSampleStatus()).toContainText('1 draft constraint is still incomplete');
   });
 
   test('function expressions in constraints still allow sample generation', async () => {

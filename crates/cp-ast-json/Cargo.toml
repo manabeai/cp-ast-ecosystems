@@ -1,6 +1,6 @@
 [package]
 name = "cp-ast-json"
-version = "0.1.5"
+version = "0.1.6"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -15,7 +15,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 base64 = "0.22"
-cp-ast-core = { version = "0.1.5", path = "../cp-ast-core" }
+cp-ast-core = { version = "0.1.6", path = "../cp-ast-core" }
 flate2 = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

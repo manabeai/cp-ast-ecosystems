@@ -6,6 +6,12 @@ import {
   generate_sample,
 } from '../../wasm';
 import { loadPreset } from '../../state';
+import {
+  buildSamplePreview,
+  samplePreviewFromGenerationError,
+  type SamplePreview,
+} from '../../sample-preview';
+import { SamplePreviewBlock } from '../SamplePreviewBlock';
 
 interface PresetInfo {
   name: string;
@@ -13,19 +19,27 @@ interface PresetInfo {
 }
 
 export function PreviewCard({ preset }: { preset: PresetInfo }) {
-  const data = useMemo(() => {
+  const data = useMemo<{
+    structure: string;
+    constraints: string;
+    sample: SamplePreview;
+  }>(() => {
     try {
       const json = get_preset(preset.name);
       return {
         structure: render_input_format(json),
         constraints: render_constraints_text(json),
-        sample: generate_sample(json, 0),
+        sample: buildSamplePreview({
+          documentJson: json,
+          seed: 0,
+          generateSample: generate_sample,
+        }),
       };
     } catch (e) {
       return {
         structure: `Error: ${e}`,
         constraints: '',
-        sample: '',
+        sample: samplePreviewFromGenerationError(e),
       };
     }
   }, [preset.name]);
@@ -51,7 +65,7 @@ export function PreviewCard({ preset }: { preset: PresetInfo }) {
       </div>
       <div class="card-section">
         <div class="card-section-label">Sample (seed=0)</div>
-        <pre class="card-content">{data.sample}</pre>
+        <SamplePreviewBlock preview={data.sample} contentClass="card-content" />
       </div>
     </div>
   );

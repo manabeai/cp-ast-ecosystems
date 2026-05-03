@@ -124,7 +124,7 @@ pub fn render_full_tex(document_json: &str) -> Result<String, JsError> {
 pub fn generate_sample(document_json: &str, seed: u32) -> Result<String, JsError> {
     let engine = deserialize(document_json)?;
     let sample = cp_ast_core::sample::generate(&engine, u64::from(seed))
-        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+        .map_err(|e| JsError::new(&e.to_string()))?;
     Ok(cp_ast_core::sample::sample_to_text(&engine, &sample))
 }
 

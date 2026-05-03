@@ -1,14 +1,14 @@
 /**
  * Preview pane: renders TeX input format, TeX constraints, and sample output.
  */
-import { inputTexString, constraintsTexString, sampleText, shuffleSeed } from './editor-state';
+import { SamplePreviewBlock } from '../components/SamplePreviewBlock';
+import { inputTexString, constraintsTexString, samplePreview, shuffleSeed } from './editor-state';
 import { renderInputTex, renderConstraintsTex } from '../tex-renderer';
 import { previewFolded, togglePreviewFold } from './fold-state';
 
 export function PreviewPane() {
   const inputTex = inputTexString.value;
   const constraintsTex = constraintsTexString.value;
-  const sample = sampleText.value;
   const folded = previewFolded.value;
 
   return (
@@ -41,7 +41,7 @@ export function PreviewPane() {
         </div>
         <div class="tex-section">
           <div class="tex-section-label">Sample</div>
-          <pre class="sample-output" data-testid="sample-output">{sample}</pre>
+          <SamplePreviewBlock preview={samplePreview.value} />
         </div>
       </div>
     </div>

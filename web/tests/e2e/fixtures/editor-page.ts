@@ -278,6 +278,10 @@ export class EditorPage {
     return this.page.getByTestId('sample-output');
   }
 
+  getSampleStatus(): Locator {
+    return this.page.getByTestId('sample-status');
+  }
+
   // ── Math editing ──────────────────────────────────────────────────
 
   async clickMathElement(id: string): Promise<void> {

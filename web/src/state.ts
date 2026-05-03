@@ -9,6 +9,7 @@ import {
   generate_sample,
   get_preset,
 } from './wasm';
+import { buildSamplePreview, samplePreviewText } from './sample-preview';
 
 // ── Page routing ────────────────────────────────────────────────────
 
@@ -77,12 +78,16 @@ export const constraintsTexString = computed(() => {
   return safeCall(() => render_constraints_tex(documentJson.value), '');
 });
 
+export const samplePreview = computed(() => {
+  return buildSamplePreview({
+    documentJson: documentJson.value,
+    seed: sampleSeed.value,
+    generateSample: generate_sample,
+  });
+});
+
 export const sampleText = computed(() => {
-  if (!documentJson.value) return '';
-  return safeCall(
-    () => generate_sample(documentJson.value, sampleSeed.value),
-    'Error generating sample',
-  );
+  return samplePreviewText(samplePreview.value);
 });
 
 // ── Actions ─────────────────────────────────────────────────────────
