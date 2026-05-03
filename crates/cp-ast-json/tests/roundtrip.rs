@@ -1,5 +1,6 @@
 use cp_ast_core::constraint::{Constraint, ExpectedType, Expression};
 use cp_ast_core::operation::AstEngine;
+use cp_ast_core::sample::{generate, sample_to_text};
 use cp_ast_core::structure::{Ident, NodeKind, NodeKindHint, Reference};
 
 /// Build a simple array problem: N then `A_1..A_N`.
@@ -82,6 +83,17 @@ fn share_state_roundtrip_uses_compressed_base64url_payload() {
         .unwrap(),
         serde_json::from_str::<serde_json::Value>(&decoded_json).unwrap()
     );
+}
+
+#[test]
+fn legacy_unresolved_function_expression_restores_for_sample_generation() {
+    let json = r#"{"schema_version":1,"document":{"structure":{"root":"0","next_id":"3","arena":[{"id":"0","kind":{"kind":"Sequence","children":["1","2"]}},{"id":"1","kind":{"kind":"Scalar","name":"n"}},{"id":"2","kind":{"kind":"Array","name":"A","length":{"kind":"Var","reference":{"kind":"VariableRef","node_id":"1"}}}}]},"constraints":{"next_id":"5","arena":[{"id":"0","constraint":{"kind":"TypeDecl","target":{"kind":"VariableRef","node_id":"1"},"expected":"Int"}},{"id":"1","constraint":{"kind":"TypeDecl","target":{"kind":"VariableRef","node_id":"2"},"expected":"Int"}},{"id":"2","constraint":{"kind":"Range","target":{"kind":"VariableRef","node_id":"1"},"lower":{"kind":"Lit","value":1},"upper":{"kind":"Lit","value":10}}},null,{"id":"4","constraint":{"kind":"Range","target":{"kind":"VariableRef","node_id":"2"},"lower":{"kind":"Lit","value":1},"upper":{"kind":"Var","reference":{"kind":"Unresolved","name":"min(n,5)"}}}}],"by_node":[{"node_id":"1","constraints":["0","2"]},{"node_id":"2","constraints":["1","4"]}],"global":[]}}}"#;
+
+    let restored = cp_ast_json::deserialize_ast(json).unwrap();
+    let sample = generate(&restored, 42).expect("legacy min() expression should generate");
+    let text = sample_to_text(&restored, &sample);
+
+    assert!(!text.trim().is_empty());
 }
 
 #[test]

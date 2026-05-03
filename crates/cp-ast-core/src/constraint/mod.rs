@@ -24,7 +24,7 @@ pub use constraint::Constraint;
 pub use constraint_id::ConstraintId;
 pub use constraint_set::ConstraintSet;
 pub use expected_type::ExpectedType;
-pub use expression::Expression;
+pub use expression::{Expression, parse_expression_str};
 pub use types::{
     ArithOp, CharSetSpec, DistinctUnit, PropertyTag, RelationOp, RenderHintKind, Separator,
     SortOrder,

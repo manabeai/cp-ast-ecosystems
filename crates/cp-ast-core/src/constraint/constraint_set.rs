@@ -117,6 +117,23 @@ impl ConstraintSet {
         })
     }
 
+    /// Iterate over all live (`ConstraintId`, &mut Constraint) pairs.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the arena index cannot be converted to u64 (only possible on systems
+    /// where usize > u64, which is extremely unlikely).
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (ConstraintId, &mut Constraint)> {
+        self.arena.iter_mut().enumerate().filter_map(|(i, slot)| {
+            slot.as_mut().map(|c| {
+                (
+                    ConstraintId::from_raw(u64::try_from(i).expect("index fits u64")),
+                    c,
+                )
+            })
+        })
+    }
+
     /// Returns the next ID that will be assigned.
     #[must_use]
     pub fn next_id(&self) -> u64 {

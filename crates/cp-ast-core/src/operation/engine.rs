@@ -1,8 +1,8 @@
 use super::action::Action;
 use super::error::OperationError;
 use super::result::{ApplyResult, PreviewResult};
-use crate::constraint::{ConstraintSet, Expression};
-use crate::structure::{NodeId, NodeKind, Reference, StructureAst};
+use crate::constraint::{Constraint, ConstraintSet, Expression};
+use crate::structure::{NodeId, NodeKind, Reference, StructureAst, StructureNode};
 
 /// The main AST engine that owns both Structure and Constraint data.
 ///
@@ -151,6 +151,22 @@ impl AstEngine {
         }
     }
 
+    /// Resolve all unresolved references in structure expressions and constraints.
+    ///
+    /// This is useful after deserialization, where historical share links may
+    /// contain symbolic expressions that predate structured `FnCall` encoding.
+    pub fn resolve_all_references(&mut self) {
+        let node_ids: Vec<NodeId> = self.structure.iter().map(StructureNode::id).collect();
+        for node_id in node_ids {
+            self.resolve_structure_references(node_id);
+        }
+
+        let structure = &self.structure;
+        for (_, constraint) in self.constraints.iter_mut() {
+            Self::resolve_constraint_refs(structure, constraint);
+        }
+    }
+
     /// Resolve Unresolved names in a `Reference` against the structure.
     fn resolve_ref(structure: &StructureAst, _owner: NodeId, reference: &mut Reference) {
         if let Reference::Unresolved(name) = reference {
@@ -180,6 +196,44 @@ impl AstEngine {
                 }
             }
             Expression::Lit(_) => {}
+        }
+    }
+
+    fn resolve_constraint_refs(structure: &StructureAst, constraint: &mut Constraint) {
+        match constraint {
+            Constraint::Range { lower, upper, .. } => {
+                Self::resolve_expr_refs(structure, NodeId::from_raw(0), lower);
+                Self::resolve_expr_refs(structure, NodeId::from_raw(0), upper);
+            }
+            Constraint::SumBound { upper, .. } => {
+                Self::resolve_expr_refs(structure, NodeId::from_raw(0), upper);
+            }
+            Constraint::LengthRelation { length, .. } => {
+                Self::resolve_expr_refs(structure, NodeId::from_raw(0), length);
+            }
+            Constraint::Relation { lhs, rhs, .. } => {
+                Self::resolve_expr_refs(structure, NodeId::from_raw(0), lhs);
+                Self::resolve_expr_refs(structure, NodeId::from_raw(0), rhs);
+            }
+            Constraint::StringLength { min, max, .. } => {
+                Self::resolve_expr_refs(structure, NodeId::from_raw(0), min);
+                Self::resolve_expr_refs(structure, NodeId::from_raw(0), max);
+            }
+            Constraint::Guarantee {
+                predicate: Some(expr),
+                ..
+            } => {
+                Self::resolve_expr_refs(structure, NodeId::from_raw(0), expr);
+            }
+            Constraint::TypeDecl { .. }
+            | Constraint::Distinct { .. }
+            | Constraint::Property { .. }
+            | Constraint::Sorted { .. }
+            | Constraint::CharSet { .. }
+            | Constraint::RenderHint { .. }
+            | Constraint::Guarantee {
+                predicate: None, ..
+            } => {}
         }
     }
 

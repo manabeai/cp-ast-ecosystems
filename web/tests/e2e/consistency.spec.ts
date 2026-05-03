@@ -14,6 +14,26 @@ test.describe('Web editor consistency', () => {
     await expect(editor.page.getByRole('heading', { level: 1 })).toHaveText('Random Test Creator');
   });
 
+  test('shared state with min expression restores and shows sample', async () => {
+    const state = 'H4sIAAAAAAAAA62TzW7CMBCE32VOreQDSeHiG1IvlXqiPxeEIuMsIapZU8ehoMjvXjlQJRSo2opT5Pibnclq0qDSS1qpbEOuKi1DJgK51fWK2EM2qLyrta8dxYOz1kNiAAGmrc_KHBJ3EFCOWEFOG7SvIvBWch41-yee6L0m1gQBvSxN7oghp0ggkGIWgjhIkzNSrYxy0VOtCBKMDk9P8bFzatfRYwgY4sIve8xrO8_Rglwb6uimVHNDE1rEGTan7JArhBBmQUBbrrxTJfsq6rpFjM4vouN7Ns-7Nd2TNhDwyhXkfxdBgLZr0p7i-YE9jhd3Nav0R6v0ktVEcUF__iRjP8j14MfSQ2CjTE2QSRCo1-sfgEEIQXBtzFe84dXipf-Kd7lcL-yosmZDedfPVck3LEa3-34JzHdZDNB2qL-ob8Wbtt2Kv45ojhKfcFE6xCzOLoydKwM5nYUQPgFNgdDW-wMAAA';
+
+    await editor.page.goto(`/?state=${state}`);
+
+    await expect(editor.structurePane).toContainText('n');
+    await expect(editor.structurePane).toContainText('A');
+    await expect(editor.getSampleOutput()).not.toBeEmpty();
+  });
+
+  test('shared state with min multiplication and division restores and shows sample', async () => {
+    const state = 'H4sIAAAAAAAAA62SX2vCMBTFv8t52kZga0VweRP2MtiT-_MiRWJ61bJ406WpUyTffaQKrVPHNnxpSfo795xezhaVXtBSTVbkqsIyZCKQW10viT3kFpV3tfa1o3hw1npI3EGAae0nRQ6JHgSUI1aQ4y2aqwi8F5xHze6NZ_qoiTVBQC8KkztiyDESCKTIQhB7aXJCqpVRLnqqJUGC0eLpMT50Tm1aeggBQzz3iw7z1sxzNCPXhDr4UqipoRHN4gyb02SfK4QQsiCgLVfeqYJ9FXXtIu5PL6LlOzYvm5IeSBsIeOXm5H8XQYDWJWlP8fzIHoeLu5hVetqKa2M6j71z_5zzSPGc_vyHxn6S68BPhYfASpmaIJMgUJflD8BdOAi6zzi4WMb0XxnPF-6VHVXWrChvO7ss-IpF__omve3teicw3UxiiKZb3Y19K-S46VwfWSxGN_URF6UDZHH23NipMpDjLITwBYw0tnITBAAA';
+
+    await editor.page.goto(`/?state=${state}`);
+
+    await expect(editor.structurePane).toContainText('n');
+    await expect(editor.structurePane).toContainText('A');
+    await expect(editor.getSampleOutput()).not.toBeEmpty();
+  });
+
   test('draft constraints suppress sample until required bounds are filled', async () => {
     await editor.addScalar('N');
 
@@ -87,6 +107,23 @@ test.describe('Web editor consistency', () => {
     await editor.fillBoundLiteral('lower', '1');
     await editor.fillBoundVar('upper', 'N');
     await editor.applyBoundFunction('upper', 'add', '2');
+    await editor.confirmConstraint();
+
+    await expect(editor.getSampleOutput()).not.toBeEmpty();
+  });
+
+  test('min function expressions in constraints still allow sample generation', async () => {
+    await editor.addScalar('n');
+    await editor.openDraft(0);
+    await editor.fillBoundLiteral('lower', '1');
+    await editor.fillBoundLiteral('upper', '10');
+    await editor.confirmConstraint();
+
+    await editor.addArray('A', 'n');
+    await editor.openDraft(0);
+    await editor.fillBoundLiteral('lower', '1');
+    await editor.fillBoundVar('upper', 'n');
+    await editor.applyBoundFunction('upper', 'min', '5');
     await editor.confirmConstraint();
 
     await expect(editor.getSampleOutput()).not.toBeEmpty();

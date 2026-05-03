@@ -62,6 +62,40 @@ fn expression_fncall() {
 }
 
 #[test]
+fn parse_expression_str_function_call() {
+    let e = parse_expression_str("min(n, 5)");
+    if let Expression::FnCall { name, args } = &e {
+        assert_eq!(name.as_str(), "min");
+        assert_eq!(args.len(), 2);
+        assert_eq!(
+            args[0],
+            Expression::Var(Reference::Unresolved(Ident::new("n")))
+        );
+        assert_eq!(args[1], Expression::Lit(5));
+    } else {
+        panic!("Expected FnCall variant");
+    }
+}
+
+#[test]
+fn parse_expression_str_function_call_with_mul_div() {
+    let e = parse_expression_str("min(n,5)*2/3");
+    if let Expression::BinOp { op, lhs, rhs } = &e {
+        assert_eq!(*op, ArithOp::Div);
+        assert_eq!(**rhs, Expression::Lit(3));
+        if let Expression::BinOp { op, lhs, rhs } = &**lhs {
+            assert_eq!(*op, ArithOp::Mul);
+            assert_eq!(**rhs, Expression::Lit(2));
+            assert!(matches!(&**lhs, Expression::FnCall { .. }));
+        } else {
+            panic!("Expected multiplication before division");
+        }
+    } else {
+        panic!("Expected BinOp variant");
+    }
+}
+
+#[test]
 fn expression_evaluate_lit() {
     assert_eq!(Expression::Lit(42).evaluate_constant(), Some(42));
 }

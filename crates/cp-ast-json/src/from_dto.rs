@@ -3,6 +3,7 @@
 use cp_ast_core::constraint::{
     ArithOp, CharSetSpec, Constraint, ConstraintId, ConstraintSet, DistinctUnit, ExpectedType,
     Expression, PropertyTag, RelationOp, RenderHintKind, Separator, SortOrder,
+    parse_expression_str,
 };
 use cp_ast_core::operation::engine::AstEngine;
 use cp_ast_core::structure::{
@@ -177,10 +178,12 @@ pub fn envelope_to_engine(envelope: AstDocumentEnvelope) -> Result<AstEngine, Co
     }
     let structure = dto_to_structure(envelope.document.structure)?;
     let constraints = dto_to_constraint_set(envelope.document.constraints)?;
-    Ok(AstEngine {
+    let mut engine = AstEngine {
         structure,
         constraints,
-    })
+    };
+    engine.resolve_all_references();
+    Ok(engine)
 }
 
 // ── structure ───────────────────────────────────────────────────────
@@ -388,6 +391,9 @@ fn dto_to_constraint(dto: ConstraintDto) -> Result<Constraint, ConversionError> 
 fn dto_to_expr(dto: ExpressionDto) -> Result<Expression, ConversionError> {
     match dto {
         ExpressionDto::Lit { value } => Ok(Expression::Lit(value)),
+        ExpressionDto::Var {
+            reference: ReferenceDto::Unresolved { name },
+        } => Ok(parse_expression_str(&name)),
         ExpressionDto::Var { reference } => Ok(Expression::Var(dto_to_ref(reference)?)),
         ExpressionDto::BinOp { op, lhs, rhs } => Ok(Expression::BinOp {
             op: str_to_arith_op(&op)?,
