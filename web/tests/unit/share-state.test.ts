@@ -44,7 +44,7 @@ describe('share-state codec', () => {
     const encoded = await encodeShareState(documentJson);
     const legacy = encodeURIComponent(btoa(documentJson));
 
-    expect(encoded.startsWith('v2.')).toBe(true);
+    expect(encoded.startsWith('v2.')).toBe(false);
     expect(encoded.length).toBeLessThan(legacy.length);
 
     const decoded = await decodeShareState(encoded);
@@ -52,7 +52,7 @@ describe('share-state codec', () => {
     expect(canonicalizeSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('decodes legacy uncompressed share state', async () => {
+  it('rejects legacy uncompressed share state', async () => {
     const { decodeShareState } = await import('../../src/share-state');
     const documentJson = JSON.stringify({
       schema_version: 1,
@@ -62,9 +62,7 @@ describe('share-state codec', () => {
       },
     });
 
-    const decoded = await decodeShareState(encodeURIComponent(btoa(documentJson)));
-
-    expect(JSON.parse(decoded)).toEqual(JSON.parse(documentJson));
-    expect(canonicalizeSpy).toHaveBeenCalledTimes(1);
+    await expect(decodeShareState(encodeURIComponent(btoa(documentJson)))).rejects.toThrow();
+    expect(canonicalizeSpy).not.toHaveBeenCalled();
   });
 });

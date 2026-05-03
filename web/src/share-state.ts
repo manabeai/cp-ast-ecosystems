@@ -1,7 +1,5 @@
 import { canonicalize_document_for_share } from './wasm';
 
-const SHARE_STATE_PREFIX = 'v2.';
-
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = '';
   for (const byte of bytes) {
@@ -40,22 +38,14 @@ async function decompressText(bytes: Uint8Array): Promise<string> {
   return await new Response(stream).text();
 }
 
-function decodeLegacyState(state: string): string {
-  return atob(decodeURIComponent(state));
-}
-
 export async function encodeShareState(documentJson: string): Promise<string> {
   const canonicalJson = canonicalize_document_for_share(documentJson);
   const compressed = await compressText(canonicalJson);
-  return `${SHARE_STATE_PREFIX}${bytesToBase64Url(compressed)}`;
+  return bytesToBase64Url(compressed);
 }
 
 export async function decodeShareState(state: string): Promise<string> {
-  if (!state.startsWith(SHARE_STATE_PREFIX)) {
-    return canonicalize_document_for_share(decodeLegacyState(state));
-  }
-
-  const compressed = base64UrlToBytes(state.slice(SHARE_STATE_PREFIX.length));
+  const compressed = base64UrlToBytes(state);
   const json = await decompressText(compressed);
   return canonicalize_document_for_share(json);
 }
