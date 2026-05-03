@@ -11,5 +11,5 @@ pub use node_kind::NodeKind;
 pub use reference::Reference;
 pub use structure_ast::StructureAst;
 pub use structure_node::StructureNode;
-pub use tree_visitor::{node_display_name, ChildEntry, DefaultTreeVisitor, NodeInfo, TreeVisitor};
+pub use tree_visitor::{ChildEntry, DefaultTreeVisitor, NodeInfo, TreeVisitor, node_display_name};
 pub use types::{Ident, Literal, NodeKindHint};

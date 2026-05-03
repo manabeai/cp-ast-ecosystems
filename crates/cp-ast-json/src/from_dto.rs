@@ -10,9 +10,9 @@ use cp_ast_core::structure::{
 };
 
 use crate::dto::{
-    AstDocumentEnvelope, CharSetSpecDto, ChoiceVariantDto, ConstraintDto, ConstraintSetDto,
-    ExpressionDto, LiteralDto, NodeKindDto, PropertyTagDto, ReferenceDto, RenderHintKindDto,
-    StructureAstDto, CURRENT_SCHEMA_VERSION,
+    AstDocumentEnvelope, CURRENT_SCHEMA_VERSION, CharSetSpecDto, ChoiceVariantDto, ConstraintDto,
+    ConstraintSetDto, ExpressionDto, LiteralDto, NodeKindDto, PropertyTagDto, ReferenceDto,
+    RenderHintKindDto, StructureAstDto,
 };
 use crate::error::ConversionError;
 

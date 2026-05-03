@@ -3,7 +3,7 @@
 use std::fmt::Write;
 
 use cp_ast_core::operation::AstEngine;
-use cp_ast_core::render::{constraint_to_tree, ConstraintNode};
+use cp_ast_core::render::{ConstraintNode, constraint_to_tree};
 use cp_ast_core::structure::node_display_name;
 
 use crate::TreeOptions;

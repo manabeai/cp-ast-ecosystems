@@ -267,10 +267,12 @@ fn add_constraint_range_success() {
         .unwrap();
 
     assert_eq!(result.created_constraints.len(), 1);
-    assert!(engine
-        .constraints
-        .get(result.created_constraints[0])
-        .is_some());
+    assert!(
+        engine
+            .constraints
+            .get(result.created_constraints[0])
+            .is_some()
+    );
 }
 
 #[test]

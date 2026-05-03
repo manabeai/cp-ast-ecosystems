@@ -681,7 +681,7 @@ fn generate_repeat_zero_count() {
 
 #[test]
 fn generate_repeat_count_exceeds_limit() {
-    use cp_ast_core::sample::{generate_with_config, GenerationConfig, GenerationError};
+    use cp_ast_core::sample::{GenerationConfig, GenerationError, generate_with_config};
 
     let mut engine = AstEngine::new();
     let n_id = engine.structure.add_node(NodeKind::Scalar {
@@ -1180,7 +1180,7 @@ fn generate_choice_empty_variants_error() {
 
 #[test]
 fn generate_deterministic_with_config() {
-    use cp_ast_core::sample::{generate_with_config, GenerationConfig};
+    use cp_ast_core::sample::{GenerationConfig, generate_with_config};
 
     let engine = build_n_plus_array_engine();
     let config = GenerationConfig {

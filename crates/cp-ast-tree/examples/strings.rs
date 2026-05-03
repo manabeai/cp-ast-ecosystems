@@ -20,7 +20,7 @@ use cp_ast_core::constraint::{CharSetSpec, Constraint, ExpectedType, Expression}
 use cp_ast_core::operation::AstEngine;
 use cp_ast_core::structure::{Ident, NodeKind, Reference};
 use cp_ast_tree::{
-    render_combined_tree, render_constraint_tree, render_structure_tree, TreeOptions,
+    TreeOptions, render_combined_tree, render_constraint_tree, render_structure_tree,
 };
 
 fn main() {

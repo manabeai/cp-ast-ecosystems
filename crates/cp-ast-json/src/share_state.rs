@@ -2,10 +2,10 @@
 
 use std::io::{Read, Write};
 
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
-use flate2::{read::GzDecoder, write::GzEncoder, Compression};
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use flate2::{Compression, read::GzDecoder, write::GzEncoder};
 
-use crate::{deserialize_ast, serialize_ast_compact, ConversionError};
+use crate::{ConversionError, deserialize_ast, serialize_ast_compact};
 use cp_ast_core::operation::AstEngine;
 
 /// Encode AST document JSON into the compact share-link `state` payload.

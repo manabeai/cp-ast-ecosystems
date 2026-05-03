@@ -67,9 +67,11 @@ fn hole_candidates_for_hole() {
     });
     let candidates = engine.hole_candidates(hole_id);
     assert!(!candidates.is_empty());
-    assert!(candidates
-        .iter()
-        .any(|c| matches!(c, CandidateKind::IntroduceScalar { .. })));
+    assert!(
+        candidates
+            .iter()
+            .any(|c| matches!(c, CandidateKind::IntroduceScalar { .. }))
+    );
 }
 
 #[test]

@@ -117,13 +117,15 @@ fn scalar_has_right_hotspot() {
     assert_eq!(right.action.kind, HotspotActionKind::AddSibling);
     assert_eq!(right.action.target_id, n);
     assert!(right.action.slot_name.is_none());
-    assert!(right
-        .candidate_details
-        .iter()
-        .any(|candidate| candidate.kind == "array"
-            && candidate.fields.iter().any(|field| field.name == "length"
-                && field.required
-                && field.field_type == "length")));
+    assert!(
+        right
+            .candidate_details
+            .iter()
+            .any(|candidate| candidate.kind == "array"
+                && candidate.fields.iter().any(|field| field.name == "length"
+                    && field.required
+                    && field.field_type == "length"))
+    );
 }
 
 #[test]

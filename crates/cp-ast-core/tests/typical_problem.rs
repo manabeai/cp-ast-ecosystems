@@ -15,7 +15,7 @@ use cp_ast_core::operation::{
 };
 use cp_ast_core::projection::ProjectionAPI;
 use cp_ast_core::render::{render_constraints, render_input};
-use cp_ast_core::sample::{generate, sample_to_text, SampleValue};
+use cp_ast_core::sample::{SampleValue, generate, sample_to_text};
 use cp_ast_core::structure::*;
 
 #[test]

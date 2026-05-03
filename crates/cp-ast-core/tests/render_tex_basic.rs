@@ -1,9 +1,9 @@
 use cp_ast_core::constraint::{ArithOp, Constraint, DistinctUnit, Expression, SortOrder};
 use cp_ast_core::operation::AstEngine;
 use cp_ast_core::render_tex::{
-    render_constraints_tex, render_full_tex, render_input_tex, SectionMode, TexOptions,
+    SectionMode, TexOptions, render_constraints_tex, render_full_tex, render_input_tex,
 };
-use cp_ast_core::render_tex::{tex_helpers, TexWarning};
+use cp_ast_core::render_tex::{TexWarning, tex_helpers};
 use cp_ast_core::structure::{Ident, NodeKind, Reference};
 
 #[test]

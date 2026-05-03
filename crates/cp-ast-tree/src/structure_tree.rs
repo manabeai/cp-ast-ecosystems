@@ -3,8 +3,8 @@
 use cp_ast_core::operation::AstEngine;
 use cp_ast_core::structure::DefaultTreeVisitor;
 
-use crate::drawing::draw_tree;
 use crate::TreeOptions;
+use crate::drawing::draw_tree;
 
 /// Render the structure AST as an ASCII tree.
 #[must_use]

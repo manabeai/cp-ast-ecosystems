@@ -7,7 +7,7 @@
 use cp_ast_core::constraint::{ArithOp, Constraint, ExpectedType, Expression};
 use cp_ast_core::operation::AstEngine;
 use cp_ast_core::render::render_input;
-use cp_ast_core::render_tex::{render_input_tex, TexOptions};
+use cp_ast_core::render_tex::{TexOptions, render_input_tex};
 use cp_ast_core::sample::generator::generate;
 use cp_ast_core::sample::output::sample_to_text;
 use cp_ast_core::structure::{Ident, Literal, NodeKind, Reference};

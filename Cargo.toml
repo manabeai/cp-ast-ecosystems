@@ -3,8 +3,8 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.package]
-edition = "2021"
-rust-version = "1.75"
+edition = "2024"
+rust-version = "1.85.0"
 license = "MIT"
 
 [workspace.lints.clippy]

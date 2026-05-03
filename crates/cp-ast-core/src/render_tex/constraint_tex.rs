@@ -3,7 +3,7 @@
 use crate::constraint::{Constraint, Expression, RelationOp, SortOrder};
 use crate::operation::AstEngine;
 
-use super::tex_helpers::{expression_to_tex, reference_to_tex, resolve_array_info, IndexAllocator};
+use super::tex_helpers::{IndexAllocator, expression_to_tex, reference_to_tex, resolve_array_info};
 use super::{TexOptions, TexOutput, TexWarning};
 
 /// Render all constraints as TeX itemize list.

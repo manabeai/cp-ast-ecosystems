@@ -8,7 +8,7 @@
 
 use cp_ast_core::operation::AstEngine;
 use cp_ast_core::structure::{Ident, NodeKind, NodeKindHint};
-use cp_ast_tree::{render_structure_tree, TreeOptions};
+use cp_ast_tree::{TreeOptions, render_structure_tree};
 
 fn main() {
     let mut engine = AstEngine::new();

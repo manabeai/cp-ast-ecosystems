@@ -6,8 +6,8 @@ use cp_ast_core::operation::AstEngine;
 use cp_ast_core::render::render_single_constraint;
 use cp_ast_core::structure::{DefaultTreeVisitor, NodeId};
 
-use crate::drawing::draw_tree;
 use crate::TreeOptions;
+use crate::drawing::draw_tree;
 
 /// Render the structure tree with constraints annotated on each node.
 ///
