@@ -12,6 +12,10 @@ pub enum ConversionError {
     },
     /// JSON parse/stringify error.
     Json(String),
+    /// Share state base64 decoding error.
+    Base64(String),
+    /// Share state gzip decoding error.
+    Gzip(String),
     /// Schema version mismatch.
     UnsupportedVersion(u32),
     /// Arena slot ID doesn't match its index.
@@ -26,6 +30,8 @@ impl fmt::Display for ConversionError {
                 write!(f, "unknown {type_name} variant: {value:?}")
             }
             Self::Json(msg) => write!(f, "JSON error: {msg}"),
+            Self::Base64(msg) => write!(f, "base64 decode error: {msg}"),
+            Self::Gzip(msg) => write!(f, "gzip decode error: {msg}"),
             Self::UnsupportedVersion(v) => write!(f, "unsupported schema version: {v}"),
             Self::IdIndexMismatch { expected, actual } => {
                 write!(

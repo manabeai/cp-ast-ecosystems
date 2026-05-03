@@ -1,13 +1,19 @@
 [package]
 name = "cp-ast-json"
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "Lossless JSON serialization boundary for cp-ast-core AST"
+repository = "https://github.com/manabeai/cp-ast-ecosystems"
+homepage = "https://github.com/manabeai/cp-ast-ecosystems"
+documentation = "https://docs.rs/cp-ast-json"
+keywords = ["ast", "json", "dsl"]
 
 [dependencies]
-cp-ast-core = { path = "../cp-ast-core" }
+base64 = "0.22"
+cp-ast-core = { version = "0.1.0", path = "../cp-ast-core" }
+flate2 = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 

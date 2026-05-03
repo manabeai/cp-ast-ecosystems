@@ -10,12 +10,14 @@ mod to_dto;
 
 mod action_dto;
 mod projection_dto;
+pub mod share_state;
 
 pub use dto::AstDocumentEnvelope;
 pub use error::ConversionError;
 
 pub use action_dto::{deserialize_action, serialize_action};
 pub use projection_dto::serialize_projection;
+pub use share_state::{decode_share_state_json, deserialize_share_state, encode_share_state_json};
 
 use cp_ast_core::operation::AstEngine;
 

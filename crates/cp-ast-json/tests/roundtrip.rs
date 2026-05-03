@@ -57,6 +57,34 @@ fn basic_roundtrip_json_identity() {
 }
 
 #[test]
+fn share_state_roundtrip_uses_compressed_base64url_payload() {
+    let engine = build_array_engine();
+    let json = cp_ast_json::serialize_ast(&engine).unwrap();
+    let state = cp_ast_json::encode_share_state_json(&json).unwrap();
+
+    assert!(!state.starts_with("v2."));
+    assert!(state.chars().all(|ch| ch != '+' && ch != '/' && ch != '='));
+
+    let decoded_json = cp_ast_json::decode_share_state_json(&state).unwrap();
+    let restored = cp_ast_json::deserialize_share_state(&state).unwrap();
+
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&decoded_json).unwrap(),
+        serde_json::from_str::<serde_json::Value>(
+            &cp_ast_json::serialize_ast_compact(&engine).unwrap()
+        )
+        .unwrap()
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(
+            &cp_ast_json::serialize_ast_compact(&restored).unwrap()
+        )
+        .unwrap(),
+        serde_json::from_str::<serde_json::Value>(&decoded_json).unwrap()
+    );
+}
+
+#[test]
 fn basic_roundtrip_structure_preserved() {
     let engine = build_array_engine();
     let json = cp_ast_json::serialize_ast(&engine).unwrap();
