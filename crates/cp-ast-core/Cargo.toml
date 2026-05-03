@@ -1,6 +1,6 @@
 [package]
 name = "cp-ast-core"
-version = "0.1.2"
+version = "0.1.3"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -10,6 +10,9 @@ homepage = "https://github.com/manabeai/cp-ast-ecosystems"
 documentation = "https://docs.rs/cp-ast-core"
 readme = "README.md"
 keywords = ["ast", "dsl"]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 rand = "0.8"

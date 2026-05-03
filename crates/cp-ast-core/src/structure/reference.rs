@@ -6,7 +6,7 @@ use super::types::Ident;
 pub enum Reference {
     /// Direct reference to a variable node.
     VariableRef(NodeId),
-    /// Indexed reference: A[i], C[i][j].
+    /// Indexed reference, such as `A[i]` or `C[i][j]`.
     IndexedRef { target: NodeId, indices: Vec<Ident> },
     /// Unresolved reference (name only, used during construction).
     Unresolved(Ident),

@@ -1,13 +1,13 @@
 [package]
 name = "cp-ast-tree"
-version = "0.1.2"
+version = "0.1.3"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "ASCII tree renderer for cp-ast-core AST inspection"
 
 [dependencies]
-cp-ast-core = { version = "0.1.2", path = "../cp-ast-core" }
+cp-ast-core = { version = "0.1.3", path = "../cp-ast-core" }
 
 [lints]
 workspace = true

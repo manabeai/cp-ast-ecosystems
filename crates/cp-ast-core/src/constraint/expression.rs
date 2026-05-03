@@ -9,7 +9,7 @@ use crate::structure::{Ident, Reference};
 pub enum Expression {
     /// Integer literal: 1, 42, 1000000007.
     Lit(i64),
-    /// Variable reference: N, A[i].
+    /// Variable reference, such as `N` or `A[i]`.
     Var(Reference),
     /// Binary arithmetic: lhs op rhs.
     BinOp {

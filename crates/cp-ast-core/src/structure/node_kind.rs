@@ -13,7 +13,7 @@ pub enum NodeKind {
     Scalar { name: Ident },
     /// 1D array: `A_1` ... `A_N`.
     Array { name: Ident, length: Expression },
-    /// 2D grid: C[i][j], A_{i,j}.
+    /// 2D grid, such as `C[i][j]` or `A_{i,j}`.
     Matrix {
         name: Ident,
         rows: Reference,
