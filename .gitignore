@@ -1,17 +1,5 @@
 target
 .codex
-
-# Web frontend build outputs
-web/wasm/
-web/node_modules/
-web/dist/
 .superpowers/
-web/playwright-report/
-
-fix copy.md
-fix2.md
-fix.md
-
 test-results
-web/test-results
 .agents/skills

@@ -93,8 +93,8 @@ AST をコンソールに ASCII ツリーとして表示するデバッグ・観
 | 項目 | 概要 |
 |------|------|
 | WASM バインディング | cp-ast-core を wasm-pack でビルド、JSON API で公開 |
-| フロントエンド構造化エディタ | Projection/Operation を使った GUI エディタ（Web） |
-| TeX プレビュー | WASM 経由で TeX 断片をブラウザ上でリアルタイム表示 |
+| フロントエンド構造化エディタ | 外部 repo `random-test-creator` から Projection/Operation を使う GUI エディタ |
+| TeX プレビュー | 外部 web repo から WASM 経由で TeX 断片をリアルタイム表示 |
 | Sample 生成の高度化 | 境界値テスト、コーナーケース自動生成 |
 
 ### 長期（拡張）
@@ -136,4 +136,4 @@ crates/cp-ast-tree/src/
 
 **完了**: AST Core の全基盤（構造・制約・操作・投影・テキスト描画・TeX 描画・サンプル生成）＋ Gap Resolution（Expression 化、ループ変数、Choice 描画改善）＋ Phase 3 Rendering completeness（Tuple 内 inline Array 全レンダラ対応、CharSetSpec Display）＋ Phase 4 AST Tree Viewer（ASCII ツリー表示、TreeVisitor 分離設計）
 
-**次のステップ**: フロントエンド接続（WASM + 構造化エディタ）、またはさらなる core 型拡張。
+**次のステップ**: 外部フロントエンド repo との接続整理（WASM + 構造化エディタ）、またはさらなる core 型拡張。

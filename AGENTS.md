@@ -19,11 +19,20 @@
 
 ## Project Structure
 - `crates/cp-ast-core/` — Core AST types (StructureAST + ConstraintAST)
+- `crates/cp-ast-json/` — JSON bridge for AST serialization and browser/native exchange
 - `crates/cp-ast-tree/` — ASCII tree renderer for AST inspection (depends on cp-ast-core)
+- `crates/cp-ast-wasm/` — wasm-bindgen bridge for external web consumers
+- `random-test-cli/` — related CLI submodule
 - `doc/` — Design documents and references
 - `doc/plan/main.md` — Project architecture overview (full vision)
 - `doc/plan/processing.md` — Implementation progress and roadmap
+- `doc/plan/repository-split.md` — current repository boundary and frontend split note
 - `docs/superpowers/` — Specs and plans
+
+## Repository Boundary
+- This repo owns the Rust AST ecosystem and wasm bindings.
+- The web frontend has been split out to `random-test-creator`.
+- `random-test-creator` should consume this repository as a git submodule instead of keeping frontend code under `web/` here.
 
 ## Git
 - Pre-commit hooks: `.githooks/pre-commit` (fmt + clippy)
