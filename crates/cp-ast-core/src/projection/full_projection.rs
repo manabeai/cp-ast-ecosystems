@@ -188,6 +188,7 @@ fn candidate_details(candidates: &[&str]) -> Vec<HoleCandidateDetail> {
             kind: (*candidate).to_owned(),
             label: candidate_label(candidate).to_owned(),
             fields: candidate_fields(candidate),
+            commit_on_ready: candidate_commit_on_ready(candidate),
         })
         .collect()
 }
@@ -227,6 +228,13 @@ fn candidate_fields(candidate: &str) -> Vec<CandidateField> {
         "query-list" | "multi-testcase" => vec![length_field("length", "Count")],
         _ => Vec::new(),
     }
+}
+
+fn candidate_commit_on_ready(candidate: &str) -> bool {
+    matches!(
+        candidate,
+        "array" | "grid-template" | "query-list" | "multi-testcase"
+    )
 }
 
 fn type_field() -> CandidateField {

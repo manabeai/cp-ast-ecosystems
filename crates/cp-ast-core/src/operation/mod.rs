@@ -7,6 +7,8 @@
 /// User-facing edit actions.
 pub mod action;
 mod constraint_ops;
+/// Build domain actions from UI draft edits.
+pub mod draft_action;
 /// Engine that owns structure and constraint state.
 pub mod engine;
 /// Operation error and violation detail types.

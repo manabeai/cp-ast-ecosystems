@@ -5,6 +5,16 @@
 
 use wasm_bindgen::prelude::*;
 
+use std::collections::HashMap;
+
+use cp_ast_core::constraint::{CharSetSpec, ConstraintId};
+use cp_ast_core::operation::draft_action::{
+    self, ConstraintDraft, HotspotDraft, NodeReplacementDraft, VariableCandidate,
+};
+use cp_ast_core::projection::types::{HotspotAction, HotspotActionKind};
+use cp_ast_core::structure::NodeId;
+use serde::Deserialize;
+
 use cp_ast_core::projection::ProjectionAPI;
 use cp_ast_core::render_tex::{SectionMode, TexOptions};
 use cp_ast_tree::TreeOptions;
@@ -192,6 +202,61 @@ pub fn apply_action(document_json: &str, action_json: &str) -> Result<String, Js
     serialize(&engine)
 }
 
+/// Builds a domain action JSON from a hotspot draft JSON.
+///
+/// The frontend owns only transient UI draft fields; candidate semantics and
+/// hotspot routing are resolved here in Rust.
+///
+/// # Errors
+///
+/// Returns `JsError` if the draft is invalid or cannot be serialized.
+#[wasm_bindgen]
+pub fn build_hotspot_action_from_draft(draft_json: &str) -> Result<String, JsError> {
+    let dto: HotspotDraftDto =
+        serde_json::from_str(draft_json).map_err(|e| JsError::new(&e.to_string()))?;
+    let draft = dto.try_into_core()?;
+    let action = draft_action::build_hotspot_action_from_draft(&draft)
+        .map_err(|e| JsError::new(&e))?;
+    cp_ast_json::serialize_action(&action).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Builds domain action JSON strings from a constraint draft JSON.
+///
+/// Existing completed constraints may return a remove+add action sequence.
+///
+/// # Errors
+///
+/// Returns `JsError` if the draft is invalid or cannot be serialized.
+#[wasm_bindgen]
+pub fn build_constraint_actions_from_draft(draft_json: &str) -> Result<String, JsError> {
+    let dto: ConstraintDraftDto =
+        serde_json::from_str(draft_json).map_err(|e| JsError::new(&e.to_string()))?;
+    let draft = dto.try_into_core()?;
+    let actions = draft_action::build_constraint_actions_from_draft(&draft)
+        .map_err(|e| JsError::new(&e))?;
+    let action_jsons = actions
+        .iter()
+        .map(cp_ast_json::serialize_action)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| JsError::new(&e.to_string()))?;
+    serde_json::to_string(&action_jsons).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Builds a replace-node domain action JSON from a node edit draft JSON.
+///
+/// # Errors
+///
+/// Returns `JsError` if the draft is invalid or cannot be serialized.
+#[wasm_bindgen]
+pub fn build_replace_action_from_draft(draft_json: &str) -> Result<String, JsError> {
+    let dto: NodeReplacementDraftDto =
+        serde_json::from_str(draft_json).map_err(|e| JsError::new(&e.to_string()))?;
+    let draft = dto.try_into_core()?;
+    let action = draft_action::build_replace_action_from_draft(&draft)
+        .map_err(|e| JsError::new(&e))?;
+    cp_ast_json::serialize_action(&action).map_err(|e| JsError::new(&e.to_string()))
+}
+
 /// Canonicalize a document through the Rust AST and return compact JSON.
 ///
 /// This is intended for transport-oriented use cases such as share links.
@@ -254,4 +319,158 @@ fn serialize(engine: &cp_ast_core::operation::AstEngine) -> Result<String, JsErr
 
 fn deserialize(json: &str) -> Result<cp_ast_core::operation::AstEngine, JsError> {
     cp_ast_json::deserialize_ast(json).map_err(|e| JsError::new(&e.to_string()))
+}
+
+#[derive(Debug, Deserialize)]
+struct HotspotDraftDto {
+    route: HotspotActionDto,
+    candidate: String,
+    fields: HashMap<String, String>,
+    variables: Vec<VariableCandidateDto>,
+}
+
+impl HotspotDraftDto {
+    fn try_into_core(self) -> Result<HotspotDraft, JsError> {
+        Ok(HotspotDraft {
+            route: self.route.try_into_core()?,
+            candidate: self.candidate,
+            fields: self.fields,
+            variables: self
+                .variables
+                .into_iter()
+                .map(VariableCandidateDto::try_into_core)
+                .collect::<Result<Vec<_>, _>>()?,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct HotspotActionDto {
+    kind: String,
+    target_id: String,
+    slot_name: Option<String>,
+}
+
+impl HotspotActionDto {
+    fn try_into_core(self) -> Result<HotspotAction, JsError> {
+        Ok(HotspotAction {
+            kind: match self.kind.as_str() {
+                "add_slot_element" => HotspotActionKind::AddSlotElement,
+                "add_sibling" => HotspotActionKind::AddSibling,
+                "fill_hole" => HotspotActionKind::FillHole,
+                "add_choice_variant" => HotspotActionKind::AddChoiceVariant,
+                other => return Err(JsError::new(&format!("unknown hotspot action: {other}"))),
+            },
+            target_id: parse_node_id(&self.target_id)?,
+            slot_name: self.slot_name,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct VariableCandidateDto {
+    name: String,
+    node_id: String,
+}
+
+impl VariableCandidateDto {
+    fn try_into_core(self) -> Result<VariableCandidate, JsError> {
+        Ok(VariableCandidate {
+            name: self.name,
+            node_id: parse_node_id(&self.node_id)?,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct ConstraintDraftDto {
+    target_id: String,
+    template: String,
+    existing_constraint_id: Option<String>,
+    lower: Option<String>,
+    upper: Option<String>,
+    over_var: Option<String>,
+    charset: Option<CharSetSpecDraftDto>,
+}
+
+impl ConstraintDraftDto {
+    fn try_into_core(self) -> Result<ConstraintDraft, JsError> {
+        Ok(ConstraintDraft {
+            target_id: parse_node_id(&self.target_id)?,
+            template: self.template,
+            existing_constraint_id: self
+                .existing_constraint_id
+                .as_deref()
+                .map(parse_constraint_id)
+                .transpose()?,
+            lower: self.lower,
+            upper: self.upper,
+            over_var: self.over_var,
+            charset: self.charset.map(CharSetSpecDraftDto::into_core),
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct NodeReplacementDraftDto {
+    target_id: String,
+    candidate: String,
+    fields: HashMap<String, String>,
+    variables: Vec<VariableCandidateDto>,
+}
+
+impl NodeReplacementDraftDto {
+    fn try_into_core(self) -> Result<NodeReplacementDraft, JsError> {
+        Ok(NodeReplacementDraft {
+            target_id: parse_node_id(&self.target_id)?,
+            candidate: self.candidate,
+            fields: self.fields,
+            variables: self
+                .variables
+                .into_iter()
+                .map(VariableCandidateDto::try_into_core)
+                .collect::<Result<Vec<_>, _>>()?,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "kind")]
+enum CharSetSpecDraftDto {
+    LowerAlpha,
+    UpperAlpha,
+    Alpha,
+    Digit,
+    AlphaNumeric,
+    
+    Custom { chars: Vec<char> },
+    Range { from: char, to: char },
+}
+
+impl CharSetSpecDraftDto {
+    fn into_core(self) -> CharSetSpec {
+        match self {
+            Self::LowerAlpha => CharSetSpec::LowerAlpha,
+            Self::UpperAlpha => CharSetSpec::UpperAlpha,
+            Self::Alpha => CharSetSpec::Alpha,
+            Self::Digit => CharSetSpec::Digit,
+            Self::AlphaNumeric => CharSetSpec::AlphaNumeric,
+            Self::Custom { chars } => CharSetSpec::Custom(chars),
+            Self::Range { from, to } => CharSetSpec::Range(from, to),
+        }
+    }
+}
+
+fn parse_node_id(value: &str) -> Result<NodeId, JsError> {
+    value
+        .parse::<u64>()
+        .map(NodeId::from_raw)
+        .map_err(|_| JsError::new(&format!("invalid node id: {value}")))
+}
+
+fn parse_constraint_id(value: &str) -> Result<ConstraintId, JsError> {
+    value
+        .parse::<u64>()
+        .map(ConstraintId::from_raw)
+        .map_err(|_| JsError::new(&format!("invalid constraint id: {value}")))
 }

@@ -210,6 +210,7 @@ pub struct HoleCandidateDetail {
     pub kind: String,
     pub label: String,
     pub fields: Vec<CandidateField>,
+    pub commit_on_ready: bool,
 }
 
 /// A field required to complete a candidate fill.

@@ -459,6 +459,7 @@ pub struct HoleCandidateDetailDto {
     pub kind: String,
     pub label: String,
     pub fields: Vec<CandidateFieldDto>,
+    pub commit_on_ready: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -115,6 +115,7 @@ fn candidate_detail_to_dto(candidate: &HoleCandidateDetail) -> HoleCandidateDeta
             .iter()
             .map(candidate_field_to_dto)
             .collect(),
+        commit_on_ready: candidate.commit_on_ready,
     }
 }
 
