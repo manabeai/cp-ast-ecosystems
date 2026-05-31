@@ -2,9 +2,7 @@ use std::collections::HashMap;
 
 use crate::constraint::{CharSetSpec, ConstraintId};
 use crate::operation::action::Action;
-use crate::operation::types::{
-    ConstraintDef, ConstraintDefKind, FillContent, LengthSpec, VarType,
-};
+use crate::operation::types::{ConstraintDef, ConstraintDefKind, FillContent, LengthSpec, VarType};
 use crate::projection::types::{HotspotAction, HotspotActionKind};
 use crate::structure::{Literal, NodeId};
 
@@ -101,7 +99,9 @@ pub fn build_hotspot_action_from_draft(draft: &HotspotDraft) -> Result<Action, S
             target: draft.route.target_id,
             fill,
         }),
-        HotspotActionKind::AddChoiceVariant => Err("variant route requires variant candidate".to_owned()),
+        HotspotActionKind::AddChoiceVariant => {
+            Err("variant route requires variant candidate".to_owned())
+        }
     }
 }
 

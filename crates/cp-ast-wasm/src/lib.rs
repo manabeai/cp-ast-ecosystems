@@ -215,8 +215,8 @@ pub fn build_hotspot_action_from_draft(draft_json: &str) -> Result<String, JsErr
     let dto: HotspotDraftDto =
         serde_json::from_str(draft_json).map_err(|e| JsError::new(&e.to_string()))?;
     let draft = dto.try_into_core()?;
-    let action = draft_action::build_hotspot_action_from_draft(&draft)
-        .map_err(|e| JsError::new(&e))?;
+    let action =
+        draft_action::build_hotspot_action_from_draft(&draft).map_err(|e| JsError::new(&e))?;
     cp_ast_json::serialize_action(&action).map_err(|e| JsError::new(&e.to_string()))
 }
 
@@ -232,8 +232,8 @@ pub fn build_constraint_actions_from_draft(draft_json: &str) -> Result<String, J
     let dto: ConstraintDraftDto =
         serde_json::from_str(draft_json).map_err(|e| JsError::new(&e.to_string()))?;
     let draft = dto.try_into_core()?;
-    let actions = draft_action::build_constraint_actions_from_draft(&draft)
-        .map_err(|e| JsError::new(&e))?;
+    let actions =
+        draft_action::build_constraint_actions_from_draft(&draft).map_err(|e| JsError::new(&e))?;
     let action_jsons = actions
         .iter()
         .map(cp_ast_json::serialize_action)
@@ -252,8 +252,8 @@ pub fn build_replace_action_from_draft(draft_json: &str) -> Result<String, JsErr
     let dto: NodeReplacementDraftDto =
         serde_json::from_str(draft_json).map_err(|e| JsError::new(&e.to_string()))?;
     let draft = dto.try_into_core()?;
-    let action = draft_action::build_replace_action_from_draft(&draft)
-        .map_err(|e| JsError::new(&e))?;
+    let action =
+        draft_action::build_replace_action_from_draft(&draft).map_err(|e| JsError::new(&e))?;
     cp_ast_json::serialize_action(&action).map_err(|e| JsError::new(&e.to_string()))
 }
 
@@ -442,7 +442,7 @@ enum CharSetSpecDraftDto {
     Alpha,
     Digit,
     AlphaNumeric,
-    
+
     Custom { chars: Vec<char> },
     Range { from: char, to: char },
 }

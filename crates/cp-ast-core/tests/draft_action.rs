@@ -1,16 +1,14 @@
 use std::collections::HashMap;
 
 use cp_ast_core::constraint::CharSetSpec;
-use cp_ast_core::operation::draft_action::{
-    build_constraint_actions_from_draft, build_hotspot_action_from_draft,
-    build_replace_action_from_draft, ConstraintDraft, HotspotDraft, NodeReplacementDraft,
-    VariableCandidate,
-};
-use cp_ast_core::operation::{
-    Action, ConstraintDefKind, FillContent, LengthSpec, VarType,
-};
-use cp_ast_core::projection::types::{HotspotAction, HotspotActionKind};
 use cp_ast_core::constraint::ConstraintId;
+use cp_ast_core::operation::draft_action::{
+    ConstraintDraft, HotspotDraft, NodeReplacementDraft, VariableCandidate,
+    build_constraint_actions_from_draft, build_hotspot_action_from_draft,
+    build_replace_action_from_draft,
+};
+use cp_ast_core::operation::{Action, ConstraintDefKind, FillContent, LengthSpec, VarType};
+use cp_ast_core::projection::types::{HotspotAction, HotspotActionKind};
 use cp_ast_core::structure::NodeId;
 
 fn vars() -> Vec<VariableCandidate> {
