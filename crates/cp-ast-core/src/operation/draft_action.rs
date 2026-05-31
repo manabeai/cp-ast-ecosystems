@@ -43,9 +43,9 @@ pub struct ConstraintDraft {
     pub lower: Option<String>,
     /// Upper/max bound draft.
     pub upper: Option<String>,
-    /// SumBound variable name draft.
+    /// `SumBound` variable name draft.
     pub over_var: Option<String>,
-    /// CharSet draft.
+    /// `CharSet` draft.
     pub charset: Option<CharSetSpec>,
 }
 
@@ -120,12 +120,12 @@ pub fn build_constraint_actions_from_draft(draft: &ConstraintDraft) -> Result<Ve
 
     let kind = match draft.template.as_str() {
         "Range" => ConstraintDefKind::Range {
-            lower: required_option(&draft.lower, "lower")?.to_owned(),
-            upper: required_option(&draft.upper, "upper")?.to_owned(),
+            lower: required_option(draft.lower.as_ref(), "lower")?.to_owned(),
+            upper: required_option(draft.upper.as_ref(), "upper")?.to_owned(),
         },
         "StringLength" => ConstraintDefKind::StringLength {
-            min: required_option(&draft.lower, "min")?.to_owned(),
-            max: required_option(&draft.upper, "max")?.to_owned(),
+            min: required_option(draft.lower.as_ref(), "min")?.to_owned(),
+            max: required_option(draft.upper.as_ref(), "max")?.to_owned(),
         },
         "CharSet" => ConstraintDefKind::CharSet {
             charset: draft
@@ -134,8 +134,8 @@ pub fn build_constraint_actions_from_draft(draft: &ConstraintDraft) -> Result<Ve
                 .ok_or_else(|| "charset is required".to_owned())?,
         },
         "SumBound" => ConstraintDefKind::SumBound {
-            over_var: required_option(&draft.over_var, "over_var")?.to_owned(),
-            upper: required_option(&draft.upper, "upper")?.to_owned(),
+            over_var: required_option(draft.over_var.as_ref(), "over_var")?.to_owned(),
+            upper: required_option(draft.upper.as_ref(), "upper")?.to_owned(),
         },
         other => return Err(format!("unsupported constraint template: {other}")),
     };
@@ -215,9 +215,9 @@ fn field<'a>(draft: &'a HotspotDraft, name: &str) -> Result<&'a str, String> {
         .ok_or_else(|| format!("{name} is required"))
 }
 
-fn required_option<'a>(value: &'a Option<String>, name: &str) -> Result<&'a str, String> {
+fn required_option<'a>(value: Option<&'a String>, name: &str) -> Result<&'a str, String> {
     value
-        .as_deref()
+        .map(String::as_str)
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| format!("{name} is required"))
 }
